@@ -2,49 +2,49 @@ import java.util.Scanner;
 
 public class Main {
 
-    // game settings
-    static int rows;
-    static int cols;
-    static int moves;       // -1 means no limit
-    static String diffname;
+    //game settings
+    public static int rows;               // number of rows in the grid
+    public static int cols;               // number of columns in the grid
+    public static int moves;              // move limit (-1 means unlimited moves)
+    public static String diffname;        // name of difficulty chosen
 
-    // board state
-    static boolean[][] visited;
-    static int row;         // player row
-    static int col;         // player col
-    static int wolfrow;
-    static int wolfcol;
+    //board state
+    public static boolean[][] visited;    // tracks which cells were visited
+    public static int row;                // current player row
+    public static int col;                // current player column
+    public static int wolfrow;            // wolfy row position
+    public static int wolfcol;            // wolfy column position
 
-    // player state
-    static String name;
-    static int steps;
-    static int movesleft;
+    //player state
+    public static String name;            // player name
+    public static int steps;              // steps taken
+    public static int movesleft;          // remaining moves if limited
 
     public static void main(String[] args) {
-        run();
+        run();                     // start the game program
     }
+//ivan
+    //main game loop
+    public static void run() {
+        Scanner in = new Scanner(System.in);  // scanner for all user input   (scanner is already defined here and we are borrowing it for the other methods, if i define scanner again in another method the code with get condused)
+        boolean play = true;                  // loop control for replaying game
 
-    // main loop for whole game
-    static void run() {
-        Scanner in = new Scanner(System.in);
-        boolean play = true;
-
-        while (play) {
-            openingscreen();
-            getname(in);
-            int diff = getdifficulty(in);
-            setup(diff);
-            init();
-            game(in);
-            play = again(in);
+        while (play) {                        // repeat until player quits   
+            openingscreen();                  // display intro text    (scan)
+            getname(in);                      // ask player name
+            int diff = getdifficulty(in);     // choose difficulty
+            setup(diff);                      // configure settings based on difficulty
+            init();                           // initialize board and variables
+            game(in);                         // run one game session
+            play = again(in);                 // ask if player wants to play again
         }
 
-        in.close();
-        System.out.println("thanks for playing");
+        in.close();                           // close input scanner
+        System.out.println("thanks for playing"); // goodbye message
     }
-
-    // show basic info about game
-    static void openingscreen() {
+//jaden
+    //intro test
+    public static void openingscreen() {
         System.out.println("===================================");
         System.out.println("          rescue wolfy");
         System.out.println("===================================");
@@ -55,253 +55,260 @@ public class Main {
         System.out.println("w up   s down   a left   d right");
         System.out.println("g give up");
         System.out.println();
-        // later add full rules and pictures
     }
-
-    // get player name
-    static void getname(Scanner in) {
+//ivan
+    //player name
+    public static void getname(Scanner in) {
         System.out.print("enter your name ");
-        name = in.nextLine().trim();
-        if (name.length() == 0) {
+        name = in.nextLine().trim();          // read name and trim spaces
+
+        if (name.length() == 0) {             // if empty, default to “player”
             name = "player";
         }
+
         System.out.println("welcome " + name);
         System.out.println();
+        
     }
 
-    // get difficulty from user
-    static int getdifficulty(Scanner in) {
-        int d = 0;
-        while (d < 1 || d > 3) {
+//jaden
+    // difficulty setting
+    public static int getdifficulty(Scanner in) {
+        int d = 0;                            // placeholder until valid input
+
+        while (d < 1 || d > 3) {              // keep asking until valid option
             System.out.println("choose difficulty");
             System.out.println("1 easy no move limit");
             System.out.println("2 medium 60 moves");
             System.out.println("3 hard 40 moves");
             System.out.print("enter 1 2 or 3 ");
-            String s = in.nextLine().trim();
-            try {
-                d = Integer.parseInt(s);
+
+            String s = in.nextLine().trim();  // read input as string
+
+            try {// try prevents the code from crashing because .parseInt(s) can only handle a whole number
+                d = Integer.parseInt(s);      // convert to integer
             } catch (NumberFormatException e) {
-                d = 0;
+                d = 0;                         // invalid result forces loop
             }
+
             if (d < 1 || d > 3) {
                 System.out.println("invalid choice");
             }
         }
-        System.out.println();
-        return d;
-    }
 
-    // set rows cols and moves based on difficulty
-    static void setup(int d) {
-        if (d == 1) {         // easy
+        System.out.println();
+        return d;                             // return difficulty number
+    }
+//jaden
+    //set the game based on the difficulty
+    public static void setup(int d) {
+        if (d == 1) {                         // easy mode settings
             rows = 10;
             cols = 10;
-            moves = -1;       // no limit
+            moves = -1;                       // unlimited moves
             diffname = "easy";
-        } else if (d == 2) {  // medium
+
+        } else if (d == 2) {                  // medium mode
             rows = 10;
             cols = 10;
             moves = 60;
             diffname = "medium";
-        } else {              // hard
+
+        } else {                              // hard mode
             rows = 12;
             cols = 12;
             moves = 40;
             diffname = "hard";
         }
     }
+//ivan
+    //initionalize the board and the player
+    public static void init() {
+        visited = new boolean[rows][cols];    // create visited grid
 
-    // make arrays and random wolfy and reset counters
-    static void init() {
-        visited = new boolean[rows][cols];
-
-        // starting position
-        row = 0;
+        row = 0;                              // player starts at top-left (0,0)
         col = 0;
-        visited[row][col] = true;
+        visited[row][col] = true;             // mark start as visited
 
-        // random wolfy not at start
+        // randomly place wolfy somewhere not equal to player start
         wolfrow = (int)(Math.random() * rows);
         wolfcol = (int)(Math.random() * cols);
+
         while (wolfrow == row && wolfcol == col) {
             wolfrow = (int)(Math.random() * rows);
             wolfcol = (int)(Math.random() * cols);
         }
 
-        steps = 0;
-        movesleft = moves;
-        // later add mines radar score etc
+        steps = 0;                            // reset counters
+        movesleft = moves;                    // initialize move counter
     }
+//Ivan
+    //code to run the main game
+    public static void game(Scanner in) {
+        boolean done = false;                 // flag when game ends
+        boolean win = false;                  // track win state
 
-    // one full game
-    static void game(Scanner in) {
-        boolean done = false;
-        boolean win = false;
+        while (!done) {                       // repeat until game finished
+            showscreen();                     // display grid + info
+            char m = getmove(in);             // read a move from player
 
-        while (!done) {
-            showscreen();
-            char m = getmove(in);
-
-            if (m == 'g') {
+            if (m == 'g') {                   // player gives up
                 System.out.println(name + " gave up");
                 done = true;
                 win = false;
-            } else {
-                if (canmove(m)) {
-                    domove(m);
-                    steps++;
-                    visited[row][col] = true;
 
-                    if (moves > -1) {
-                        movesleft--;
+            } else {
+                if (canmove(m)) {             // verify move is inside grid
+                    domove(m);                // update coordinates
+                    steps++;                  // counter increases
+                    visited[row][col] = true; // mark cell visited
+
+                    if (moves > -1) {         // if moves are limited
+                        movesleft--;          // subtracts one from the amount of steps left
                     }
 
-                    // check win
+                    // check if player reached wolfy
                     if (row == wolfrow && col == wolfcol) {
                         win = true;
                         done = true;
+
+                    // check if ran out of moves
                     } else if (moves > -1 && movesleft < 0) {
                         System.out.println("you ran out of moves");
                         done = true;
                         win = false;
                     }
+
                 } else {
                     System.out.println("cant move outside the grid");
                 }
             }
         }
 
-        // later add score before end screen
-        endscreen(win);
+        endscreen(win);                        // show end result
     }
-
-    // show info and grid
-    static void showscreen() {
+//ivan
+    //prints the status and the grid
+    public static void showscreen() {
         System.out.println();
         System.out.println("===================================");
         System.out.println("player " + name + "  difficulty " + diffname);
         System.out.println("grid " + rows + " x " + cols);
         System.out.println("steps used " + steps);
-        if (moves > -1) {
+
+        if (moves > -1) {                      // limited moves case
             System.out.println("moves left " + movesleft);
         } else {
             System.out.println("moves left unlimited");
         }
-        System.out.println("-----------------------------------");
-        showgrid();
-        System.out.println("-----------------------------------");
-        // later show mines around and radar signal
-    }
 
-    // draw the grid
-    static void showgrid() {
-        // column labels
+        System.out.println("-----------------------------------");
+        showgrid();                            // actually draw the grid
+        System.out.println("-----------------------------------");
+    }
+//ivan
+    //render the screen
+    public static void showgrid() {
+
+        // column number labels
         System.out.print("   ");
         for (int c = 0; c < cols; c++) {
-            if (c < 10) {
-                System.out.print(" " + c + " ");
-            } else {
-                System.out.print(c + " ");
-            }
+            if (c < 10) System.out.print(" " + c + " ");
+            else System.out.print(c + " ");
         }
         System.out.println();
 
+        // render each row
         for (int r = 0; r < rows; r++) {
-            if (r < 10) {
-                System.out.print(" " + r + " ");
-            } else {
-                System.out.print(r + " ");
-            }
+
+            // print row number label
+            if (r < 10) System.out.print(" " + r + " ");
+            else System.out.print(r + " ");
 
             for (int c = 0; c < cols; c++) {
-                if (r == row && c == col) {
+
+                if (r == row && c == col) {        // player position
                     System.out.print(" p ");
-                } else if (visited[r][c]) {
+
+                } else if (visited[r][c]) {       // visited square
                     System.out.print(" . ");
-                } else {
+
+                } else {                           // unexplored
                     System.out.print(" - ");
                 }
-                // later maybe show wolfy or mines for debug
             }
             System.out.println();
         }
     }
-
-    // ask for move key
-    static char getmove(Scanner in) {
+//jaden
+    //get user input
+    public static char getmove(Scanner in) {
         System.out.print("enter move w a s d or g to give up ");
         String s = in.nextLine().trim().toLowerCase();
+
+        // validate input until correct
         while (s.length() == 0 || "wasdg".indexOf(s.charAt(0)) == -1) {
             System.out.print("please enter w a s d or g ");
             s = in.nextLine().trim().toLowerCase();
         }
-        return s.charAt(0);
+
+        return s.charAt(0);                     // return first character
     }
+//ivan
+    //check if the move is legal
+    public static boolean canmove(char m) {
+        int nr = row;                           // next row
+        int nc = col;                           // next column
 
-    // check if move stays inside grid
-    static boolean canmove(char m) {
-        int nr = row;
-        int nc = col;
+        if (m == 'w') nr--;                     // move up
+        else if (m == 's') nr++;                // move down
+        else if (m == 'a') nc--;                // move left
+        else if (m == 'd') nc++;                // move right
+        else return false;                      // invalid key
 
-        if (m == 'w') {
-            nr--;
-        } else if (m == 's') {
-            nr++;
-        } else if (m == 'a') {
-            nc--;
-        } else if (m == 'd') {
-            nc++;
-        } else {
-            return false;
-        }
-
+        // check bounds
         if (nr < 0 || nr >= rows) return false;
         if (nc < 0 || nc >= cols) return false;
-        return true;
-    }
 
-    // update player row and col
-    static void domove(char m) {
-        if (m == 'w') {
-            row--;
-        } else if (m == 's') {
-            row++;
-        } else if (m == 'a') {
-            col--;
-        } else if (m == 'd') {
-            col++;
-        }
-        // later stop moves into walls or guards
+        return true;                            // move is valid
     }
-
-    // show result of game
-    static void endscreen(boolean win) {
+//jaden
+    //do the move
+    public static void domove(char m) {
+        if (m == 'w') row--;                   // go up
+        else if (m == 's') row++;              // go down
+        else if (m == 'a') col--;              // go left
+        else if (m == 'd') col++;              // go right
+    }
+//ivan
+    //final game summary
+    public static void endscreen(boolean win) {
         System.out.println();
         System.out.println("========== game over ==========");
-        if (win) {
+
+        if (win) {                              // winning case
             System.out.println("you rescued wolfy " + name);
             System.out.println("you used " + steps + " moves");
-        } else {
+        } else {                                // losing case
             System.out.println("mission failed " + name);
             System.out.println("you did not reach wolfy");
         }
+
         System.out.println("wolfy was at row " + wolfrow + " col " + wolfcol);
         System.out.println("================================");
         System.out.println();
-        // later add score and leaderboard
     }
-
-    // ask if user wants to play again
-    static boolean again(Scanner in) {
+//ivan
+    //ask player if they want to replay
+    public static boolean again(Scanner in) {
         System.out.print("play again y or n ");
         String s = in.nextLine().trim().toLowerCase();
+
         while (s.length() == 0 || (s.charAt(0) != 'y' && s.charAt(0) != 'n')) {
             System.out.print("please enter y or n ");
             s = in.nextLine().trim().toLowerCase();
         }
-        return s.charAt(0) == 'y';
-    }
 
-    // later add methods for mines radar scoring gui drawing and files
+        return s.charAt(0) == 'y';              // true if yes
+    }
 }
