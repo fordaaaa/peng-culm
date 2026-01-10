@@ -20,6 +20,10 @@ public class Main {
     public static int steps;              // steps taken
     public static int movesleft;          // remaining moves if limited
 
+    //bomb state    
+    public static boolean[][] bombs; // true if there is a bomb in the specific cell
+    public static int bombcount; // number of bombs on the grid for difficulty settings
+
     public static void main(String[] args) {
         run();                     // start the game program
     }
@@ -100,34 +104,37 @@ public class Main {
         return d;                             // return difficulty number
     }
 //jaden
-    //set the game based on the difficulty
+    //game difficulty settings 
     public static void setup(int d) {
         if (d == 1) {                         // easy mode settings
             rows = 10;
             cols = 10;
-            moves = -1;                       // unlimited moves
+            moves = -1;                       // unlimited moves - might change to have SOME challenge idk
             diffname = "easy";
+            bombcount = 8;
 
         } else if (d == 2) {                  // medium mode
             rows = 10;
             cols = 10;
             moves = 60;
             diffname = "medium";
+            bombcount = 15;
+
 
         } else {                              // hard mode
             rows = 12;
             cols = 12;
             moves = 40;
             diffname = "hard";
+            bombcount = 25;
         }
     }
 //ivan
     //initionalize the board and the player
     public static void init() {
         visited = new boolean[rows][cols];    // create visited grid
-
-        row = 0;                              // player starts at top-left (0,0)
-        col = 0;
+        row = 0;                              // player starts at top left (0,0)
+        col = 0;                                    
         visited[row][col] = true;             // mark start as visited
 
         // randomly place wolfy somewhere not equal to player start
@@ -138,9 +145,24 @@ public class Main {
             wolfrow = (int)(Math.random() * rows);
             wolfcol = (int)(Math.random() * cols);
         }
+            // bomb setup
+        bombs = new boolean[rows][cols];      // init bomb grid
+        int placed = 0;
+        while (placed < bombcount) {
+            int br = (int)(Math.random() * rows);
+            int bc = (int)(Math.random() * cols);
 
-        steps = 0;                            // reset counters
-        movesleft = moves;                    // initialize move counter
+            // dont put bomb on player start or on wolfy or on an existing bomb
+            if ((br == row && bc == col) || (br == wolfrow && bc == wolfcol)) {
+                continue;
+            }
+            if (!bombs[br][bc]) {             // only place if empty
+                bombs[br][bc] = true;
+                placed++;
+            }
+        }
+            steps = 0;                            // reset counters
+            movesleft = moves;                    // initialize move counter
     }
 //Ivan
     //code to run the main game
@@ -157,8 +179,7 @@ public class Main {
                 done = true;
                 win = false;
 
-            } else {
-                if (canmove(m)) {             // verify move is inside grid
+            } else { if (canmove(m)) {             // verify move is inside grid
                     domove(m);                // update coordinates
                     steps++;                  // counter increases
                     visited[row][col] = true; // mark cell visited
@@ -167,8 +188,14 @@ public class Main {
                         movesleft--;          // subtracts one from the amount of steps left
                     }
 
+                    // check if player stepped on a bomb
+                    if (bombs[row][col]) {
+                        System.out.println("boom! " + name + " stepped on a mine");
+                        done = true;
+                        win = false;
+
                     // check if player reached wolfy
-                    if (row == wolfrow && col == wolfcol) {
+                    } else if (row == wolfrow && col == wolfcol) {
                         win = true;
                         done = true;
 
@@ -177,9 +204,7 @@ public class Main {
                         System.out.println("you ran out of moves");
                         done = true;
                         win = false;
-                    }
-
-                } else {
+                    } else {
                     System.out.println("cant move outside the grid");
                 }
             }
