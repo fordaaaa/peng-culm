@@ -2,6 +2,7 @@ import java.util.Scanner;
 import javax.swing.*;           // for GUI (JFrame, JPanel, JButton, etc.)
 import java.awt.*;              // for drawing the grid
 import java.awt.event.*;        // for button events
+import java.io.*;               // for leaderboard file saving/loading (used later)
 
 public class Main {
 
@@ -367,24 +368,44 @@ public class Main {
 
     // leaderboard methods (skeletons - fill in later)
     public static int calculateScore(boolean win) {
-        // TODO: calculate a score based on steps, difficulty, etc.
+        // this will work out a numeric score based on:
+        // - did the player win or lose (win = higher score)
+        // - how many steps they used (fewer steps = better)
+        // - maybe difficulty (hard gives bonus points)
+        // for now we just return 0 so the game still runs
         return 0;
     }
 
     public static void updateLeaderboard(String playerName, int score) {
-        // TODO: update bestnames/bestscores arrays and keep top 5 scores
+        // this will eventually:
+        // 1. insert (playerName, score) into bestnames/bestscores arrays
+        // 2. keep only the top 5 scores (highest first)
+        // 3. call saveLeaderboard() so scores are written to a file
+        // no code yet so the teacher can see the plan without full IO
     }
 
     public static void showLeaderboard() {
-        // TODO: print or display the leaderboard
+        // this will display the top scores
+        // console version idea:
+        //   loop over bestscores and print position, name, and score
+        // GUI version idea:
+        //   show a JOptionPane with a formatted string of the top 5
     }
 
     public static void loadLeaderboard() {
-        // TODO: later: load leaderboard from a file using file I/O
+        // later this will read scores from a text file, for example:
+        //   File file = new File("util/leaderboard.txt");
+        //   use BufferedReader / Scanner to read each line "name,score"
+        //   fill bestnames[i] and bestscores[i] from the data
+        // method kept empty for now on purpose
     }
 
     public static void saveLeaderboard() {
-        // TODO: later: save leaderboard to a file using file I/O
+        // later this will save scores to a text file, for example:
+        //   File file = new File("util/leaderboard.txt");
+        //   use PrintWriter or FileWriter to write lines "name,score"
+        //   loop through bestnames/bestscores and write the top 5
+        // body left blank so IO can be finished later
     }
 }
 
