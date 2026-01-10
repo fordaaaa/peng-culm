@@ -180,6 +180,9 @@ public class Main {
                 done = true;
                 win = false;
 
+            } else if (m == 'f') {            // use the radar, and doesnt move (takes a turn)
+                showdistance();
+
             } else { if (canmove(m)) {             // verify move is inside grid
                     domove(m);                // update coordinates
                     steps++;                  // counter increases
@@ -284,12 +287,12 @@ public class Main {
 //jaden
     //get user input
     public static char getmove(Scanner in) {
-        System.out.print("enter move w a s d or g to give up ");
+        System.out.print("enter move w a s d, f to scan, or g to give up ");
         String s = in.nextLine().trim().toLowerCase();
 
         // validate input until correct
-        while (s.length() == 0 || "wasdg".indexOf(s.charAt(0)) == -1) {
-            System.out.print("please enter w a s d or g ");
+        while (s.length() == 0 || "wasdgf".indexOf(s.charAt(0)) == -1) {
+            System.out.print("please enter w a s d, f or g ");
             s = in.nextLine().trim().toLowerCase();
         }
 
