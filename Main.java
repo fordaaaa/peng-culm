@@ -23,6 +23,10 @@ public class Main {
     public static int steps;              // steps taken
     public static int movesleft;          // remaining moves if limited
 
+    //leaderboard (top 5) - will be filled in later
+    public static String[] bestnames = new String[5];
+    public static int[] bestscores = new int[5];
+
     //bomb state    
     public static boolean[][] bombs; // true if there is a bomb in the specific cell
     public static int bombcount; // number of bombs on the grid for difficulty settings
@@ -347,7 +351,7 @@ public class Main {
         System.out.println("================================");
         System.out.println();
     }
-//ivan
+    //ivan
     //ask player if they want to replay
     public static boolean again(Scanner in) {
         System.out.print("play again y or n ");
@@ -359,6 +363,28 @@ public class Main {
         }
 
         return s.charAt(0) == 'y';              // true if yes
+    }
+
+    // leaderboard methods (skeletons - fill in later)
+    public static int calculateScore(boolean win) {
+        // TODO: calculate a score based on steps, difficulty, etc.
+        return 0;
+    }
+
+    public static void updateLeaderboard(String playerName, int score) {
+        // TODO: update bestnames/bestscores arrays and keep top 5 scores
+    }
+
+    public static void showLeaderboard() {
+        // TODO: print or display the leaderboard
+    }
+
+    public static void loadLeaderboard() {
+        // TODO: later: load leaderboard from a file using file I/O
+    }
+
+    public static void saveLeaderboard() {
+        // TODO: later: save leaderboard to a file using file I/O
     }
 }
 
@@ -553,18 +579,22 @@ class RescueWolfyGUI extends JFrame implements ActionListener {
     // small panel that draws the grid using the same data as the console version
     class RescuePanel extends JPanel {
 
-        // if you want to use pictures later, you could load them here, for example:
-        // Image playerPic = new ImageIcon("util/player.png").getImage();   // TODO: add player.png in util
-        // Image wolfyPic  = new ImageIcon("util/wolfy.png").getImage();    // TODO: add wolfy.png in util
-        // Image bombPic   = new ImageIcon("util/bomb.png").getImage();     // TODO: add bomb.png in util
-        // Image floorPic  = new ImageIcon("util/floor.png").getImage();    // TODO: add floor.png in util
+        // picture variables (you will load them yourself later)
+        Image playerPic;  // from util/player.png
+        Image wolfyPic;   // from util/wolfy.png
+        Image bombPic;    // from util/bomb.png
+        Image floorPic;   // from util/floor.png
+
+        // example of how you might load them (commented out for now):
+        // public RescuePanel() {
+        //     playerPic = new ImageIcon("util/player.png").getImage();
+        //     wolfyPic  = new ImageIcon("util/wolfy.png").getImage();
+        //     bombPic   = new ImageIcon("util/bomb.png").getImage();
+        //     floorPic  = new ImageIcon("util/floor.png").getImage();
+        // }
 
         public void paintComponent(Graphics g) {
             super.paintComponent(g);
-
-            // background
-            g.setColor(Color.DARK_GRAY);
-            g.fillRect(0, 0, getWidth(), getHeight());
 
             if (Main.rows <= 0 || Main.cols <= 0) {
                 return;
@@ -579,33 +609,27 @@ class RescueWolfyGUI extends JFrame implements ActionListener {
                     int x = offsetX + c * cellSize;
                     int y = offsetY + r * cellSize;
 
-                    // base color for cell
-                    if (Main.visited != null && Main.visited[r][c]) {
-                        g.setColor(new Color(180, 180, 180)); // visited
-                    } else {
-                        g.setColor(new Color(100, 100, 100)); // not visited
+                    // draw floor tile if available
+                    if (floorPic != null) {
+                        g.drawImage(floorPic, x, y, cellSize, cellSize, this);
                     }
-                    g.fillRect(x, y, cellSize, cellSize);
 
                     // draw bomb if this cell has one and has been visited
-                    if (Main.visited != null && Main.visited[r][c] && Main.bombs != null && Main.bombs[r][c]) {
-                        g.setColor(Color.RED);
-                        g.fillOval(x + cellSize/4, y + cellSize/4, cellSize/2, cellSize/2);
+                    if (Main.visited != null && Main.visited[r][c] && Main.bombs != null && Main.bombs[r][c] && bombPic != null) {
+                        g.drawImage(bombPic, x, y, cellSize, cellSize, this);
                     }
 
                     // draw player
-                    if (r == Main.row && c == Main.col) {
-                        g.setColor(Color.BLUE);
-                        g.fillOval(x + cellSize/4, y + cellSize/4, cellSize/2, cellSize/2);
+                    if (r == Main.row && c == Main.col && playerPic != null) {
+                        g.drawImage(playerPic, x, y, cellSize, cellSize, this);
                     }
 
                     // if game done, show where wolfy is
-                    if (done && r == Main.wolfrow && c == Main.wolfcol) {
-                        g.setColor(Color.GREEN);
-                        g.fillRect(x + cellSize/4, y + cellSize/4, cellSize/2, cellSize/2);
+                    if (done && r == Main.wolfrow && c == Main.wolfcol && wolfyPic != null) {
+                        g.drawImage(wolfyPic, x, y, cellSize, cellSize, this);
                     }
 
-                    // grid lines
+                    // optional grid lines so you can still see the board layout
                     g.setColor(Color.BLACK);
                     g.drawRect(x, y, cellSize, cellSize);
                 }
