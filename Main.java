@@ -57,6 +57,7 @@ public class Main {
         System.out.println();
         System.out.println("controls");
         System.out.println("w up   s down   a left   d right");
+        System.out.println("f scanner (shows how far from wolfy)");
         System.out.println("g give up");
         System.out.println();
     }
@@ -184,7 +185,7 @@ public class Main {
                     steps++;                  // counter increases
                     visited[row][col] = true; // mark cell visited
 
-                    if (moves > -1) {         // if moves are limited
+                    if (moves > -1) {          // if moves are limited
                         movesleft--;          // subtracts one from the amount of steps left
                     }
 
@@ -252,18 +253,33 @@ public class Main {
 
             for (int c = 0; c < cols; c++) {
 
-                if (r == row && c == col) {        // player position
-                    System.out.print(" p ");
+                if (r == row && c == col) {              // player position
+                    System.out.println(" p ");
 
-                } else if (visited[r][c]) {       // visited square
-                    System.out.print(" . ");
+                } else if (visited[r][c] && bombs[r][c]) { // stepped on a bomb here
+                    System.out.println(" X ");
 
-                } else {                           // unexplored
-                    System.out.print(" - ");
+                } else if (visited[r][c]) {              // visited safe square
+                    System.out.println(" . ");
+
+                } else {                                 // unexplored
+                    System.out.println(" - ");
                 }
             }
             System.out.println();
         }
+    }
+
+    // cheat/twist part where the player is able to scan how far they are from wolfy
+    public static void showdistance() { // method to find distance between player and wolfy
+        int dr = row - wolfrow;         // difference in rows
+        if (dr < 0) dr = -dr;           // could use math.abs in its stead
+        int dc = col - wolfcol;
+        if (dc < 0) dc = -dc;         
+        
+        int distance = dr + dc;
+        System.out.println("radar signal: wolfy is " + distance + " units away");
+
     }
 //jaden
     //get user input
