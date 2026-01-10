@@ -1,4 +1,7 @@
 import java.util.Scanner;
+import javax.swing.*;           // for GUI (JFrame, JPanel, JButton, etc.)
+import java.awt.*;              // for drawing the grid
+import java.awt.event.*;        // for button events
 
 public class Main {
 
@@ -183,12 +186,13 @@ public class Main {
             } else if (m == 'f') {            // use the radar, and doesnt move (takes a turn)
                 showdistance();
 
-            } else { if (canmove(m)) {             // verify move is inside grid
+            } else {
+                if (canmove(m)) {             // verify move is inside grid
                     domove(m);                // update coordinates
                     steps++;                  // counter increases
                     visited[row][col] = true; // mark cell visited
 
-                    if (moves > -1) {          // if moves are limited
+                    if (moves > -1) {         // if moves are limited
                         movesleft--;          // subtracts one from the amount of steps left
                     }
 
@@ -208,14 +212,14 @@ public class Main {
                         System.out.println("you ran out of moves");
                         done = true;
                         win = false;
-                    } else {
+                    }
+                } else {
                     System.out.println("cant move outside the grid");
                 }
             }
         }
 
         endscreen(win);                        // show end result
-    }
     }
 //ivan
     //prints the status and the grid
@@ -258,16 +262,16 @@ public class Main {
             for (int c = 0; c < cols; c++) {
 
                 if (r == row && c == col) {              // player position
-                    System.out.println(" p ");
+                    System.out.print(" p ");
 
                 } else if (visited[r][c] && bombs[r][c]) { // stepped on a bomb here
-                    System.out.println(" X ");
+                    System.out.print(" X ");
 
                 } else if (visited[r][c]) {              // visited safe square
-                    System.out.println(" . ");
+                    System.out.print(" . ");
 
                 } else {                                 // unexplored
-                    System.out.println(" - ");
+                    System.out.print(" - ");
                 }
             }
             System.out.println();
@@ -355,5 +359,262 @@ public class Main {
         }
 
         return s.charAt(0) == 'y';              // true if yes
+    }
+}
+
+// simple GUI version of rescue wolfy using buttons and a drawing panel
+// run this class with: java RescueWolfyGUI (after compiling Main.java)
+class RescueWolfyGUI extends JFrame implements ActionListener {
+
+    private RescuePanel panel;        // draws the grid
+    private JLabel infoLabel;         // shows name, difficulty, steps, moves
+    private JLabel statusLabel;       // shows messages (bomb, win, etc.)
+
+    private JButton upButton;
+    private JButton downButton;
+    private JButton leftButton;
+    private JButton rightButton;
+    private JButton scanButton;
+    private JButton giveUpButton;
+    private JButton newGameButton;
+
+    private boolean done;             // if the game is finished in GUI
+    private boolean win;              // win/lose for this GUI round
+
+    private String playerName;        // stored name for GUI runs
+
+    public RescueWolfyGUI() {
+        super("Rescue Wolfy GUI");
+
+        // ask for name using a simple dialog (like scanner but in GUI)
+        playerName = JOptionPane.showInputDialog(this, "enter your name");
+        if (playerName == null) {
+            playerName = "player";
+        }
+        playerName = playerName.trim();
+        if (playerName.length() == 0) {
+            playerName = "player";
+        }
+
+        Main.name = playerName;   // share with the console game variables
+
+        // for now, default difficulty to medium (2)
+        Main.setup(2);
+        Main.init();
+
+        done = false;
+        win = false;
+
+        // set up labels
+        infoLabel = new JLabel("", JLabel.CENTER);
+        statusLabel = new JLabel("use the buttons to move", JLabel.CENTER);
+
+        // drawing panel
+        panel = new RescuePanel();
+
+        // buttons panel
+        JPanel buttons = new JPanel();
+        buttons.setLayout(new GridLayout(2, 4, 5, 5));
+
+        upButton = makeButton("UP", "up");
+        downButton = makeButton("DOWN", "down");
+        leftButton = makeButton("LEFT", "left");
+        rightButton = makeButton("RIGHT", "right");
+        scanButton = makeButton("SCAN", "scan");
+        giveUpButton = makeButton("GIVE UP", "giveup");
+        newGameButton = makeButton("NEW GAME", "newgame");
+
+        buttons.add(upButton);
+        buttons.add(downButton);
+        buttons.add(leftButton);
+        buttons.add(rightButton);
+        buttons.add(scanButton);
+        buttons.add(giveUpButton);
+        buttons.add(newGameButton);
+        // one empty cell to keep it simple
+        buttons.add(new JLabel(""));
+
+        // main layout
+        JPanel main = new JPanel();
+        main.setLayout(new BorderLayout(5, 5));
+        main.add(infoLabel, BorderLayout.NORTH);
+        main.add(panel, BorderLayout.CENTER);
+        main.add(statusLabel, BorderLayout.SOUTH);
+
+        getContentPane().setLayout(new BorderLayout(5, 5));
+        getContentPane().add(main, BorderLayout.CENTER);
+        getContentPane().add(buttons, BorderLayout.SOUTH);
+
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(600, 650);
+        setLocationRelativeTo(null);
+
+        updateInfo();
+
+        setVisible(true);
+    }
+
+    private JButton makeButton(String text, String command) {
+        JButton b = new JButton(text);
+        b.setActionCommand(command);
+        b.addActionListener(this);
+        return b;
+    }
+
+    private void updateInfo() {
+        String movesText;
+        if (Main.moves > -1) {
+            movesText = "moves left " + Main.movesleft;
+        } else {
+            movesText = "moves left unlimited";
+        }
+        infoLabel.setText("player " + Main.name + "  difficulty " + Main.diffname +
+                "  steps " + Main.steps + "  " + movesText);
+    }
+
+    private void startNewGame() {
+        // keep same name, difficulty = medium for now
+        Main.name = playerName;
+        Main.setup(2);
+        Main.init();
+        done = false;
+        win = false;
+        statusLabel.setText("new game started");
+        updateInfo();
+        panel.repaint();
+    }
+
+    public void actionPerformed(ActionEvent e) {
+        String cmd = e.getActionCommand();
+
+        if (cmd.equals("up")) {
+            doMove('w');
+        } else if (cmd.equals("down")) {
+            doMove('s');
+        } else if (cmd.equals("left")) {
+            doMove('a');
+        } else if (cmd.equals("right")) {
+            doMove('d');
+        } else if (cmd.equals("scan")) {
+            // same distance as console version but shown here
+            int dr = Main.row - Main.wolfrow;
+            if (dr < 0) dr = -dr;
+            int dc = Main.col - Main.wolfcol;
+            if (dc < 0) dc = -dc;
+            int distance = dr + dc;
+            statusLabel.setText("scanner: wolfy is " + distance + " squares away");
+        } else if (cmd.equals("giveup")) {
+            done = true;
+            win = false;
+            statusLabel.setText(Main.name + " gave up");
+        } else if (cmd.equals("newgame")) {
+            startNewGame();
+        }
+
+        updateInfo();
+        panel.repaint();
+    }
+
+    private void doMove(char m) {
+        if (done) return;     // ignore moves after game over
+
+        if (Main.canmove(m)) {
+            Main.domove(m);
+            Main.steps++;
+            Main.visited[Main.row][Main.col] = true;
+
+            if (Main.moves > -1) {
+                Main.movesleft--;
+            }
+
+            if (Main.bombs[Main.row][Main.col]) {
+                statusLabel.setText("boom! " + Main.name + " stepped on a mine");
+                done = true;
+                win = false;
+
+            } else if (Main.row == Main.wolfrow && Main.col == Main.wolfcol) {
+                statusLabel.setText("you rescued wolfy!");
+                done = true;
+                win = true;
+
+            } else if (Main.moves > -1 && Main.movesleft < 0) {
+                statusLabel.setText("you ran out of moves");
+                done = true;
+                win = false;
+
+            } else {
+                statusLabel.setText("moved");
+            }
+        } else {
+            statusLabel.setText("cant move outside the grid");
+        }
+    }
+
+    // small panel that draws the grid using the same data as the console version
+    class RescuePanel extends JPanel {
+
+        // if you want to use pictures later, you could load them here, for example:
+        // Image playerPic = new ImageIcon("util/player.png").getImage();   // TODO: add player.png in util
+        // Image wolfyPic  = new ImageIcon("util/wolfy.png").getImage();    // TODO: add wolfy.png in util
+        // Image bombPic   = new ImageIcon("util/bomb.png").getImage();     // TODO: add bomb.png in util
+        // Image floorPic  = new ImageIcon("util/floor.png").getImage();    // TODO: add floor.png in util
+
+        public void paintComponent(Graphics g) {
+            super.paintComponent(g);
+
+            // background
+            g.setColor(Color.DARK_GRAY);
+            g.fillRect(0, 0, getWidth(), getHeight());
+
+            if (Main.rows <= 0 || Main.cols <= 0) {
+                return;
+            }
+
+            int cellSize = Math.min(getWidth() / Main.cols, getHeight() / Main.rows);
+            int offsetX = (getWidth() - cellSize * Main.cols) / 2;
+            int offsetY = (getHeight() - cellSize * Main.rows) / 2;
+
+            for (int r = 0; r < Main.rows; r++) {
+                for (int c = 0; c < Main.cols; c++) {
+                    int x = offsetX + c * cellSize;
+                    int y = offsetY + r * cellSize;
+
+                    // base color for cell
+                    if (Main.visited != null && Main.visited[r][c]) {
+                        g.setColor(new Color(180, 180, 180)); // visited
+                    } else {
+                        g.setColor(new Color(100, 100, 100)); // not visited
+                    }
+                    g.fillRect(x, y, cellSize, cellSize);
+
+                    // draw bomb if this cell has one and has been visited
+                    if (Main.visited != null && Main.visited[r][c] && Main.bombs != null && Main.bombs[r][c]) {
+                        g.setColor(Color.RED);
+                        g.fillOval(x + cellSize/4, y + cellSize/4, cellSize/2, cellSize/2);
+                    }
+
+                    // draw player
+                    if (r == Main.row && c == Main.col) {
+                        g.setColor(Color.BLUE);
+                        g.fillOval(x + cellSize/4, y + cellSize/4, cellSize/2, cellSize/2);
+                    }
+
+                    // if game done, show where wolfy is
+                    if (done && r == Main.wolfrow && c == Main.wolfcol) {
+                        g.setColor(Color.GREEN);
+                        g.fillRect(x + cellSize/4, y + cellSize/4, cellSize/2, cellSize/2);
+                    }
+
+                    // grid lines
+                    g.setColor(Color.BLACK);
+                    g.drawRect(x, y, cellSize, cellSize);
+                }
+            }
+        }
+    }
+
+    // entry point for the GUI only
+    public static void main(String[] args) {
+        new RescueWolfyGUI();
     }
 }
