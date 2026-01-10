@@ -216,6 +216,7 @@ public class Main {
 
         endscreen(win);                        // show end result
     }
+    }
 //ivan
     //prints the status and the grid
     public static void showscreen() {
