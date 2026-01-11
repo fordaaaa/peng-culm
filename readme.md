@@ -1,7 +1,5 @@
 ** For later: **
 
-- main class cannot be simply removed and is still needed as a standalone
-
 - make sure that the io gets created and has a better scoring system
 
 - make a enter a number to select difficulty 

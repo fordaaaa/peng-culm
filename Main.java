@@ -32,9 +32,9 @@ public class Main {
     public static boolean[][] bombs; // true if there is a bomb in the specific cell
     public static int bombcount; // number of bombs on the grid for difficulty settings
 
-    public static void main(String[] args) {
-        run();                     // start the game program
-    }
+    // public static void main(String[] args) {
+    //     run();                     // start the game program
+    // }
 //ivan
     //main game loop
     public static void run() {
