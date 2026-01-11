@@ -32,9 +32,9 @@ public class Main {
     public static boolean[][] bombs; // true if there is a bomb in the specific cell
     public static int bombcount; // number of bombs on the grid for difficulty settings
 
-    // public static void main(String[] args) {
-    //     run();                     // start the game program (console version)
-    // }
+    public static void main(String[] args) {
+        run();                     // start the game program (console version)
+    }
 //ivan
     //main game loop
     public static void run() {
@@ -279,7 +279,13 @@ public class Main {
                     System.out.print(" X ");
 
                 } else if (visited[r][c]) {              // visited safe square
-                    System.out.print(" . ");
+                    int heat = getHeatLevelForCell(r, c);
+                    if (heat > 0) {
+                        // print heat number for hot/cold hint
+                        System.out.print(" " + heat + " ");
+                    } else {
+                        System.out.print(" . ");
+                    }
 
                 } else {                                 // unexplored
                     System.out.print(" - ");
@@ -299,6 +305,40 @@ public class Main {
         int distance = dr + dc;
         System.out.println("radar signal: wolfy is " + distance + " units away");
 
+    }
+
+    //return a simple "heat" level for a cell based on distance from wolfy
+    //higher number = closer (hotter)
+    public static int getHeatLevelForCell(int r, int c) {
+        int dr = r - wolfrow;
+        if (dr < 0) dr = -dr;
+        int dc = c - wolfcol;
+        if (dc < 0) dc = -dc;
+        int dist = dr + dc; // manhattan distance
+
+        if ("easy".equals(diffname)) {
+            if (dist == 0) return 0;        // on wolfy
+            else if (dist <= 2) return 5;   // very hot
+            else if (dist <= 4) return 4;   // hot
+            else if (dist <= 6) return 3;   // warm
+            else if (dist <= 9) return 2;   // cool
+            else return 1;                  // cold
+
+        } else if ("medium".equals(diffname)) {
+            if (dist == 0) return 0;
+            else if (dist <= 1) return 7;   // closest
+            else if (dist <= 3) return 6;
+            else if (dist <= 5) return 5;
+            else if (dist <= 7) return 4;
+            else if (dist <= 9) return 3;
+            else if (dist <= 12) return 2;
+            else return 1;
+
+        } else { // hard - only hot or cold
+            if (dist == 0) return 0;
+            else if (dist <= 4) return 2;   // hot
+            else return 1;                  // cold
+        }
     }
 //jaden
     //get user input
@@ -558,6 +598,36 @@ class GuiWolfy extends JFrame implements ActionListener {
         // drawing panel
         panel = new RescuePanel();
 
+        // allow WASD keys to control movement as well as buttons
+        panel.setFocusable(true);
+        panel.addKeyListener(new KeyAdapter() {
+            public void keyPressed(KeyEvent e) {
+                char ch = Character.toLowerCase(e.getKeyChar());
+                if (ch == 'w' || ch == 'a' || ch == 's' || ch == 'd') {
+                    doMove(ch);
+                    updateInfo();
+                    panel.repaint();
+                } else if (ch == 'f') {
+                    // same as scan button
+                    int dr = Main.row - Main.wolfrow;
+                    if (dr < 0) dr = -dr;
+                    int dc = Main.col - Main.wolfcol;
+                    if (dc < 0) dc = -dc;
+                    int distance = dr + dc;
+                    statusLabel.setText("scanner: wolfy is " + distance + " squares away");
+                    updateInfo();
+                    panel.repaint();
+                } else if (ch == 'g') {
+                    // same as give up button
+                    done = true;
+                    win = false;
+                    statusLabel.setText(Main.name + " gave up");
+                    updateInfo();
+                    panel.repaint();
+                }
+            }
+        });
+
         // buttons panel
         JPanel buttons = new JPanel();
         buttons.setLayout(new GridLayout(2, 4, 5, 5));
@@ -599,6 +669,8 @@ class GuiWolfy extends JFrame implements ActionListener {
         updateInfo();
 
         setVisible(true);
+        // make sure panel has focus so WASD keys work immediately
+        panel.requestFocusInWindow();
     }
 
     private JButton makeButton(String text, String command) {
@@ -656,6 +728,8 @@ class GuiWolfy extends JFrame implements ActionListener {
         statusLabel.setText("new game started");
         updateInfo();
         panel.repaint();
+        panel.requestFocusInWindow();
+    }
     }
 
     public void actionPerformed(ActionEvent e) {
@@ -776,14 +850,29 @@ class GuiWolfy extends JFrame implements ActionListener {
                         g.drawImage(bombPic, x, y, cellSize, cellSize, this);
                     }
 
+                    // draw hot/cold number in the middle for visited safe squares
+                    if (Main.visited != null && Main.visited[r][c]
+                            && (Main.bombs == null || !Main.bombs[r][c])
+                            && !(r == Main.row && c == Main.col)) {
+                        int heat = Main.getHeatLevelForCell(r, c);
+                        if (heat > 0) {
+                            g.setColor(Color.WHITE);
+                            String text = Integer.toString(heat);
+                            FontMetrics fm = g.getFontMetrics();
+                            int textX = x + (cellSize - fm.stringWidth(text)) / 2;
+                            int textY = y + (cellSize + fm.getAscent()) / 2 - 2;
+                            g.drawString(text, textX, textY);
+                        }
+                    }
+
                     // if game done, show where wolfy is
                     if (done && r == Main.wolfrow && c == Main.wolfcol && wolfyPic != null) {
                         g.drawImage(wolfyPic, x, y, cellSize, cellSize, this);
                     }
 
                     // optional grid lines so you can still see the board layout
-                    // g.setColor(Color.BLACK);
-                    // g.drawRect(x, y, cellSize, cellSize, this);
+                    g.setColor(Color.BLACK);
+                    g.drawRect(x, y, cellSize, cellSize);
                 }
             }
         }
