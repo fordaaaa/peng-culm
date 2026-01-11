@@ -33,7 +33,7 @@ public class Main {
     public static int bombcount; // number of bombs on the grid for difficulty settings
 
     // public static void main(String[] args) {
-    //     run();                     // start the game program
+    //     run();                     // start the game program (console version)
     // }
 //ivan
     //main game loop
@@ -226,6 +226,9 @@ public class Main {
                 }
             }
         }
+
+        // show final grid state so bombs and wolfy position are visible
+        showscreen();
 
         endscreen(win);                        // show end result
     }
@@ -505,6 +508,7 @@ class GuiWolfy extends JFrame implements ActionListener {
     private RescuePanel panel;        // draws the grid
     private JLabel infoLabel;         // shows name, difficulty, steps, moves
     private JLabel statusLabel;       // shows messages (bomb, win, etc.)
+    private JLabel moveTrackerLabel;  // extra move tracker on the side
 
     private JButton upButton;
     private JButton downButton;
@@ -518,6 +522,7 @@ class GuiWolfy extends JFrame implements ActionListener {
     private boolean win;              // win/lose for this GUI round
 
     private String playerName;        // stored name for GUI runs
+    private int guiDifficulty;        // difficulty chosen for GUI (1,2,3)
 
     public GuiWolfy() {
         super("Rescue Wolfy!");
@@ -537,8 +542,9 @@ class GuiWolfy extends JFrame implements ActionListener {
 
         Main.name = playerName;   // share with the console game variables
 
-        // for now, default difficulty to medium (2)
-        Main.setup(2);
+        // ask for difficulty using a number: 1 easy, 2 medium, 3 hard
+        guiDifficulty = askDifficulty();
+        Main.setup(guiDifficulty);
         Main.init();
 
         done = false;
@@ -547,6 +553,7 @@ class GuiWolfy extends JFrame implements ActionListener {
         // set up labels
         infoLabel = new JLabel("", JLabel.CENTER);
         statusLabel = new JLabel("use the buttons to move", JLabel.CENTER);
+        moveTrackerLabel = new JLabel("", JLabel.CENTER);
 
         // drawing panel
         panel = new RescuePanel();
@@ -579,13 +586,14 @@ class GuiWolfy extends JFrame implements ActionListener {
         main.add(infoLabel, BorderLayout.NORTH);
         main.add(panel, BorderLayout.CENTER);
         main.add(statusLabel, BorderLayout.SOUTH);
+        main.add(moveTrackerLabel, BorderLayout.EAST); // move tracker on the side
 
         getContentPane().setLayout(new BorderLayout(5, 5));
         getContentPane().add(main, BorderLayout.CENTER);
         getContentPane().add(buttons, BorderLayout.SOUTH);
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(600, 650);
+        setSize(800, 800); // slightly larger window so pictures and tracker fit nicely
         setLocationRelativeTo(null);
 
         updateInfo();
@@ -609,12 +617,39 @@ class GuiWolfy extends JFrame implements ActionListener {
         }
         infoLabel.setText("player " + Main.name + "  difficulty " + Main.diffname +
                 "  steps " + Main.steps + "  " + movesText);
+
+n        // simple move tracker on the side using HTML for two lines
+        moveTrackerLabel.setText("<html>steps: " + Main.steps + "<br>" + movesText + "</html>");
+    }
+
+    // ask the user for difficulty using a simple number input dialog
+    private int askDifficulty() {
+        int d = 0;
+        while (d < 1 || d > 3) {
+            String input = JOptionPane.showInputDialog(this,
+                    "choose difficulty:\n" +
+                    "1 easy (no move limit)\n" +
+                    "2 medium (60 moves)\n" +
+                    "3 hard (40 moves)");
+            if (input == null) {
+                // if they cancel, default to medium
+                d = 2;
+                break;
+            }
+            input = input.trim();
+            try {
+                d = Integer.parseInt(input);
+            } catch (NumberFormatException e) {
+                d = 0; // force loop again
+            }
+        }
+        return d;
     }
 
     private void startNewGame() {
-        // keep same name, difficulty = medium for now
+        // keep same name and same difficulty as before
         Main.name = playerName;
-        Main.setup(2);
+        Main.setup(guiDifficulty);
         Main.init();
         done = false;
         win = false;
@@ -668,6 +703,10 @@ class GuiWolfy extends JFrame implements ActionListener {
 
             if (Main.bombs[Main.row][Main.col]) {
                 statusLabel.setText("boom! " + Main.name + " stepped on a mine");
+                JOptionPane.showMessageDialog(this,
+                        "BOOM! You hit a mine!",
+                        "Explosion",
+                        JOptionPane.ERROR_MESSAGE);
                 done = true;
                 win = false;
 
@@ -726,14 +765,15 @@ class GuiWolfy extends JFrame implements ActionListener {
                         g.drawImage(floorPic, x, y, cellSize, cellSize, this);
                     }
 
-                    // draw bomb if this cell has one and has been visited
-                    if (Main.visited != null && Main.visited[r][c] && Main.bombs != null && Main.bombs[r][c] && bombPic != null) {
-                        g.drawImage(bombPic, x, y, cellSize, cellSize, this);
-                    }
-
-                    // draw player
+                    // draw player first
                     if (r == Main.row && c == Main.col && playerPic != null) {
                         g.drawImage(playerPic, x, y, cellSize, cellSize, this);
+                    }
+
+                    // draw bomb if this cell has one and has been visited
+                    if (Main.visited != null && Main.visited[r][c] && Main.bombs != null && Main.bombs[r][c] && bombPic != null) {
+                        // bomb image on top (acts like explosion when you step on it)
+                        g.drawImage(bombPic, x, y, cellSize, cellSize, this);
                     }
 
                     // if game done, show where wolfy is
@@ -743,7 +783,7 @@ class GuiWolfy extends JFrame implements ActionListener {
 
                     // optional grid lines so you can still see the board layout
                     g.setColor(Color.BLACK);
-                    g.drawRect(x, y, cellSize, cellSize);
+                    g.drawRect(x, y, cellSize, cellSize, this);
                 }
             }
         }
