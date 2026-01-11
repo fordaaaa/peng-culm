@@ -618,7 +618,7 @@ class GuiWolfy extends JFrame implements ActionListener {
         infoLabel.setText("player " + Main.name + "  difficulty " + Main.diffname +
                 "  steps " + Main.steps + "  " + movesText);
 
-n        // simple move tracker on the side using HTML for two lines
+        // simple move tracker on the side using HTML for two lines
         moveTrackerLabel.setText("<html>steps: " + Main.steps + "<br>" + movesText + "</html>");
     }
 
@@ -782,8 +782,8 @@ n        // simple move tracker on the side using HTML for two lines
                     }
 
                     // optional grid lines so you can still see the board layout
-                    g.setColor(Color.BLACK);
-                    g.drawRect(x, y, cellSize, cellSize, this);
+                    // g.setColor(Color.BLACK);
+                    // g.drawRect(x, y, cellSize, cellSize, this);
                 }
             }
         }
