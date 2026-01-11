@@ -1,7 +1,13 @@
 ** For later: **
 
-- need to fix the init game, and delete the main class as its only text based (making it useless)
+- main class cannot be simply removed and is still needed as a standalone
 
-- add in all the images, and maybe try to add in a explosion sound if possible
+- make sure that the io gets created and has a better scoring system
 
-- finish making the scoring systems using java.io.*, the methods are already there too
+- make a enter a number to select difficulty 
+
+- explosion sound maybe/effect
+
+- possibly need to fix scoring systems but bombs are not showing up properly
+
+- maybe instead let wasd work aswell, and have like a move tracker on the side etc

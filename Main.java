@@ -41,6 +41,9 @@ public class Main {
         Scanner in = new Scanner(System.in);  // scanner for all user input   (scanner is already defined here and we are borrowing it for the other methods, if i define scanner again in another method the code with get condused)
         boolean play = true;                  // loop control for replaying game
 
+        // load any saved scores from file before the first game
+        loadLeaderboard();
+
         while (play) {                        // repeat until player quits   
             openingscreen();                  // display intro text    (scan)
             getname(in);                      // ask player name
@@ -349,6 +352,15 @@ public class Main {
         }
 
         System.out.println("wolfy was at row " + wolfrow + " col " + wolfcol);
+
+        // simple scoring + leaderboard update
+        int score = calculateScore(win);
+        System.out.println("your score: " + score);
+
+        updateLeaderboard(name, score);
+        saveLeaderboard();
+        showLeaderboard();
+
         System.out.println("================================");
         System.out.println();
     }
@@ -366,52 +378,129 @@ public class Main {
         return s.charAt(0) == 'y';              // true if yes
     }
 
-    // leaderboard methods (skeletons - fill in later)
+    // leaderboard methods - simple but working
     public static int calculateScore(boolean win) {
-        // this will work out a numeric score based on:
-        // - did the player win or lose (win = higher score)
-        // - how many steps they used (fewer steps = better)
-        // - maybe difficulty (hard gives bonus points)
-        // for now we just return 0 so the game still runs
-        return 0;
+        // base score depends on win/lose
+        if (!win) {
+            return 0;
+        }
+
+        int base = 1000;           // starting points
+        int stepPenalty = steps * 5;   // lose 5 points per step
+
+        int difficultyBonus = 0;
+        if ("medium".equals(diffname)) {
+            difficultyBonus = 100;
+        } else if ("hard".equals(diffname)) {
+            difficultyBonus = 250;
+        }
+
+        int score = base + difficultyBonus - stepPenalty;
+        if (score < 0) score = 0;
+        return score;
     }
 
     public static void updateLeaderboard(String playerName, int score) {
-        // this will eventually:
-        // 1. insert (playerName, score) into bestnames/bestscores arrays
-        // 2. keep only the top 5 scores (highest first)
-        // 3. call saveLeaderboard() so scores are written to a file
-        // no code yet so the teacher can see the plan without full IO
+        if (score <= 0) return;  // dont store zero or negative scores
+
+        // find insert position (higher score is better)
+        int pos = -1;
+        for (int i = 0; i < bestscores.length; i++) {
+            if (score > bestscores[i]) {
+                pos = i;
+                break;
+            }
+        }
+
+        if (pos == -1) return; // not good enough for top 5
+
+        // shift lower scores down
+        for (int i = bestscores.length - 1; i > pos; i--) {
+            bestscores[i] = bestscores[i - 1];
+            bestnames[i] = bestnames[i - 1];
+        }
+
+        // insert new score
+        bestscores[pos] = score;
+        bestnames[pos] = playerName;
     }
 
     public static void showLeaderboard() {
-        // this will display the top scores
-        // console version idea:
-        //   loop over bestscores and print position, name, and score
-        // GUI version idea:
-        //   show a JOptionPane with a formatted string of the top 5
+        System.out.println("----- leaderboard (top 5) -----");
+        for (int i = 0; i < bestscores.length; i++) {
+            if (bestscores[i] > 0 && bestnames[i] != null) {
+                System.out.println((i + 1) + ". " + bestnames[i] + " - " + bestscores[i]);
+            }
+        }
+        System.out.println("--------------------------------");
     }
 
     public static void loadLeaderboard() {
-        // later this will read scores from a text file, for example:
-        //   File file = new File("util/leaderboard.txt");
-        //   use BufferedReader / Scanner to read each line "name,score"
-        //   fill bestnames[i] and bestscores[i] from the data
-        // method kept empty for now on purpose
+        // start with empty scores
+        for (int i = 0; i < bestscores.length; i++) {
+            bestscores[i] = 0;
+            bestnames[i] = null;
+        }
+
+        File file = new File("util/leaderboard.txt");
+        if (!file.exists()) {
+            return; // nothing to load yet
+        }
+
+        Scanner in = null;
+        try {
+            in = new Scanner(file);
+            int index = 0;
+            while (in.hasNextLine() && index < bestscores.length) {
+                String line = in.nextLine().trim();
+                if (line.length() == 0) continue;
+
+                int comma = line.lastIndexOf(',');
+                if (comma == -1) continue;   // bad line, skip
+
+                String player = line.substring(0, comma);
+                String scoreText = line.substring(comma + 1);
+
+                int s;
+                try {
+                    s = Integer.parseInt(scoreText.trim());
+                } catch (NumberFormatException e) {
+                    continue;               // skip if score is not a number
+                }
+
+                bestnames[index] = player;
+                bestscores[index] = s;
+                index++;
+            }
+        } catch (IOException e) {
+            // ignore file errors for now
+        } finally {
+            if (in != null) in.close();
+        }
     }
 
     public static void saveLeaderboard() {
-        // later this will save scores to a text file, for example:
-        //   File file = new File("util/leaderboard.txt");
-        //   use PrintWriter or FileWriter to write lines "name,score"
-        //   loop through bestnames/bestscores and write the top 5
-        // body left blank so IO can be finished later
+        File file = new File("util/leaderboard.txt");
+        PrintWriter out = null;
+
+        try {
+            out = new PrintWriter(file);
+            for (int i = 0; i < bestscores.length; i++) {
+                if (bestscores[i] > 0 && bestnames[i] != null) {
+                    out.println(bestnames[i] + "," + bestscores[i]);
+                }
+            }
+        } catch (IOException e) {
+            // ignore write errors for now
+        } finally {
+            if (out != null) out.close();
+        }
     }
 }
 
 // simple GUI version of rescue wolfy using buttons and a drawing panel
-// run this class with: java RescueWolfyGUI (after compiling Main.java)
-class RescueWolfyGUI extends JFrame implements ActionListener {
+// run this class with: java GuiWolfy (after compiling Main.java)
+class GuiWolfy extends JFrame implements ActionListener {
 
     private RescuePanel panel;        // draws the grid
     private JLabel infoLabel;         // shows name, difficulty, steps, moves
@@ -430,11 +519,14 @@ class RescueWolfyGUI extends JFrame implements ActionListener {
 
     private String playerName;        // stored name for GUI runs
 
-    public RescueWolfyGUI() {
-        super("Rescue Wolfy GUI");
+    public GuiWolfy() {
+        super("Rescue Wolfy!");
+
+        // load saved scores before starting GUI game
+        Main.loadLeaderboard();
 
         // ask for name using a simple dialog (like scanner but in GUI)
-        playerName = JOptionPane.showInputDialog(this, "enter your name");
+        playerName = JOptionPane.showInputDialog(this, "Please enter your name: ");
         if (playerName == null) {
             playerName = "player";
         }
@@ -600,19 +692,18 @@ class RescueWolfyGUI extends JFrame implements ActionListener {
     // small panel that draws the grid using the same data as the console version
     class RescuePanel extends JPanel {
 
-        // picture variables (you will load them yourself later)
-        Image playerPic;  // from util/player.png
-        Image wolfyPic;   // from util/wolfy.png
-        Image bombPic;    // from util/bomb.png
-        Image floorPic;   // from util/floor.png
+        // picture variables loaded from ./util
+        Image playerPic;  // util/player.png
+        Image wolfyPic;   // util/wolfy.png
+        Image bombPic;    // util/bomb.png
+        Image floorPic;   // util/grass.png (background tile)
 
-        // example of how you might load them (commented out for now):
-        // public RescuePanel() {
-        //     playerPic = new ImageIcon("util/player.png").getImage();
-        //     wolfyPic  = new ImageIcon("util/wolfy.png").getImage();
-        //     bombPic   = new ImageIcon("util/bomb.png").getImage();
-        //     floorPic  = new ImageIcon("util/floor.png").getImage();
-        // }
+        public RescuePanel() {
+            playerPic = new ImageIcon("util/player.png").getImage();
+            wolfyPic  = new ImageIcon("util/wolfy.png").getImage();
+            bombPic   = new ImageIcon("util/bomb.png").getImage();
+            floorPic  = new ImageIcon("util/grass.png").getImage();
+        }
 
         public void paintComponent(Graphics g) {
             super.paintComponent(g);
@@ -660,6 +751,6 @@ class RescueWolfyGUI extends JFrame implements ActionListener {
 
     // entry point for the GUI only
     public static void main(String[] args) {
-        new RescueWolfyGUI();
+        new GuiWolfy();
     }
 }
