@@ -26,9 +26,9 @@ public class MainGui extends JFrame implements ActionListener {
     private int steps;              // steps taken
     private int movesleft;          // remaining moves if limited
 
-    //bomb state
-    private boolean[][] bombs;      // true if there is a bomb in the specific cell
-    private int bombcount;          // number of bombs on the grid for difficulty settings
+    //bomb state (single chasing bomb)
+    private int bombRow;
+    private int bombCol;
 
     // GUI components
     private RescuePanel panel;      // draws the grid
@@ -71,7 +71,7 @@ public class MainGui extends JFrame implements ActionListener {
 
         // set up labels
         infoLabel = new JLabel("", JLabel.CENTER);
-        statusLabel = new JLabel("use the buttons or WASD/arrow keys to move", JLabel.CENTER);
+        statusLabel = new JLabel("use the buttons or WASD/arrow keys to move, f to use the hidden feature..", JLabel.CENTER);
         moveTrackerLabel = new JLabel("", JLabel.CENTER);
 
         // move log area on the side
@@ -184,7 +184,7 @@ public class MainGui extends JFrame implements ActionListener {
 
     private void updateInfo() {
         String movesText;
-        if (moves > -1) movesText = "moves left " + movesleft;
+        if (moves > -1) movesText = "moves left " + movesleft; 
         else movesText = "moves left unlimited";
         infoLabel.setText("player " + name + "  difficulty " + diffname +
                 "  steps " + steps + "  " + movesText);
@@ -198,11 +198,11 @@ public class MainGui extends JFrame implements ActionListener {
         while (d < 1 || d > 3) {
             String input = JOptionPane.showInputDialog(this,
                     "choose difficulty:\n" +
-                    "1 easy (no move limit)\n" +
-                    "2 medium (60 moves)\n" +
-                    "3 hard (40 moves)");
+                    "1 easy (40 moves limit)\n" +
+                    "2 medium (25 moves limit)\n" +
+                    "3 hard (15 moves limit)");
             if (input == null) {
-                // if they cancel, just use medium
+                // deafult is to just use medium
                 d = 2;
                 break;
             }
@@ -265,17 +265,27 @@ public class MainGui extends JFrame implements ActionListener {
 
     private void setup(int d) {
         if (d == 1) {
-            rows = 10; cols = 10; moves = -1; diffname = "easy"; bombcount = 8;
+            rows = 10;
+            cols = 10;
+            moves = 40;          // easy: 40 moves
+            diffname = "easy";
         } else if (d == 2) {
-            rows = 10; cols = 10; moves = 60; diffname = "medium"; bombcount = 15;
+            rows = 10;
+            cols = 10;
+            moves = 25;          // medium: 25 moves
+            diffname = "medium";
         } else {
-            rows = 12; cols = 12; moves = 40; diffname = "hard"; bombcount = 25;
+            rows = 12;
+            cols = 12;
+            moves = 15;          // hard: 15 moves
+            diffname = "hard";
         }
     }
 
     private void init() {
         visited = new boolean[rows][cols];
-        row = 0; col = 0;
+        row = 0;
+        col = 0;
         visited[row][col] = true;
 
         // randomly place wolfy somewhere not equal to player start
@@ -286,17 +296,12 @@ public class MainGui extends JFrame implements ActionListener {
             wolfcol = (int)(Math.random() * cols);
         }
 
-        // bomb setup
-        bombs = new boolean[rows][cols];
-        int placed = 0;
-        while (placed < bombcount) {
-            int br = (int)(Math.random() * rows);
-            int bc = (int)(Math.random() * cols);
-            if ((br == row && bc == col) || (br == wolfrow && bc == wolfcol)) continue;
-            if (!bombs[br][bc]) {
-                bombs[br][bc] = true;
-                placed++;
-            }
+        // single bomb setup 
+        bombRow = (int)(Math.random() * rows);
+        bombCol = (int)(Math.random() * cols);
+        while ((bombRow == row && bombCol == col) || (bombRow == wolfrow && bombCol == wolfcol)) { // check to make sure that bomb isnt on player/wolfy
+            bombRow = (int)(Math.random() * rows);
+            bombCol = (int)(Math.random() * cols);
         }
 
         steps = 0;
@@ -333,12 +338,20 @@ public class MainGui extends JFrame implements ActionListener {
 
             if (moves > -1) movesleft--;
 
-            if (bombs[row][col]) {
+            // move bomb one tile closer to the player (no diagonal)
+            // moveBombTowardPlayer(); using a chance type move only
+
+            double chance = Math.random(); // 50% chance to move bomb
+            if (chance < 0.50) {
+                moveBombTowardPlayer();
+            }
+
+            if (row == bombRow && col == bombCol) {
                 statusLabel.setText("boom! " + name + " stepped on a mine");
                 logMove("hit a mine");
                 JOptionPane.showMessageDialog(this,
                         "BOOM! You hit a mine!",
-                        "Explosion",
+                        "Explosion!",
                         JOptionPane.ERROR_MESSAGE);
                 done = true;
                 win = false;
@@ -361,6 +374,15 @@ public class MainGui extends JFrame implements ActionListener {
         }
     }
 
+    // move the bomb one step closer to the player plus-type moves only
+    private void moveBombTowardPlayer() {
+        if (done) return;
+        if (bombRow < row) bombRow++;
+        else if (bombRow > row) bombRow--;
+        else if (bombCol < col) bombCol++;
+        else if (bombCol > col) bombCol--;
+    }
+
     private String describeMove(char m) {
         if (m == 'w') return "moved up";
         else if (m == 's') return "moved down";
@@ -374,47 +396,23 @@ public class MainGui extends JFrame implements ActionListener {
         moveLogArea.setCaretPosition(moveLogArea.getDocument().getLength());
     }
 
-    //return a simple "heat" level for a cell based on distance from the nearest bomb
+    //return a simple "heat" level for a cell based on distance from the bomb
     //higher number = closer (hotter)
     private int getHeatLevelForCell(int r, int c) {
-        int closest = Integer.MAX_VALUE;
-        if (bombs != null) {
-            for (int br = 0; br < rows; br++) {
-                for (int bc = 0; bc < cols; bc++) {
-                    if (bombs[br][bc]) {
-                        int dr = r - br;
-                        if (dr < 0) dr = -dr;
-                        int dc = c - bc;
-                        if (dc < 0) dc = -dc;
-                        int dist = dr + dc;
-                        if (dist < closest) closest = dist;
-                    }
-                }
-            }
-        }
-        if (closest == Integer.MAX_VALUE) return 0;
-        int dist = closest;
+        int dr = r - bombRow;
+        if (dr < 0) dr = -dr;
+        int dc = c - bombCol;
+        if (dc < 0) dc = -dc;
+        int dist = dr + dc; // manhattan distance to bomb
 
-        if ("easy".equals(diffname)) {
-            if (dist == 0) return 0;
-            else if (dist <= 2) return 6;
-            else if (dist <= 4) return 5;
-            else if (dist <= 6) return 4;
-            else if (dist <= 9) return 3;
-            else if (dist <= 13) return 2;
-            else return 1;
-        } else if ("medium".equals(diffname)) {
-            if (dist == 0) return 0;
-            else if (dist <= 2) return 4;
-            else if (dist <= 5) return 3;
-            else if (dist <= 9) return 2;
-            else return 1;
-        } else { // hard
-            if (dist == 0) return 0;
-            else if (dist <= 3) return 3;
-            else if (dist <= 7) return 2;
-            else return 1;
-        }
+        // same mapping for all difficulties (1..6)
+        if (dist == 0) return 0;       // bomb tile itself
+        else if (dist <= 2) return 6;  // very hot
+        else if (dist <= 4) return 5;  // hot
+        else if (dist <= 6) return 4;  // warm
+        else if (dist <= 9) return 3;  // cool
+        else if (dist <= 13) return 2; // colder
+        else return 1;                 // cold
     }
 
     // panel that draws the grid
@@ -451,11 +449,11 @@ public class MainGui extends JFrame implements ActionListener {
                         g.drawImage(playerPic, x, y, cellSize, cellSize, this);
                     }
 
-                    if (bombs != null && visited != null && visited[r][c] && bombs[r][c] && bombPic != null) {
+                    if (visited != null && visited[r][c] && r == bombRow && c == bombCol && bombPic != null) {
                         g.drawImage(bombPic, x, y, cellSize, cellSize, this);
                     }
 
-                    if (visited != null && visited[r][c] && (bombs == null || !bombs[r][c])) {
+                    if (visited != null && visited[r][c] && !(r == bombRow && c == bombCol)) {
                         int heat = getHeatLevelForCell(r, c);
                         if (heat > 0) {
                             g.setColor(Color.WHITE);
