@@ -249,7 +249,7 @@ public class MainGui extends JFrame implements ActionListener {
             done = true;
             win = false;
             statusLabel.setText(name + " gave up");
-        } else if (cmd.equals("newgame``)) {
+        } else if (cmd.equals("newgame")) {
             startNewGame();
         }
 
