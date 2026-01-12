@@ -32,9 +32,10 @@ public class Main {
     public static boolean[][] bombs; // true if there is a bomb in the specific cell
     public static int bombcount; // number of bombs on the grid for difficulty settings
 
-    // public static void main(String[] args) { - only used to debug game logic originally
-    //     run();                     // start the game program (console version)
-    // }
+    // main entry point for console version
+    public static void main(String[] args) {
+        run();                     // start the game program (console version)
+    }
 //ivan
     //main game loop
     public static void run() {
@@ -316,27 +317,29 @@ public class Main {
         if (dc < 0) dc = -dc;
         int dist = dr + dc; // manhattan distance
 
+        // easy: values 1..6 only
         if ("easy".equals(diffname)) {
             if (dist == 0) return 0;        // on wolfy
-            else if (dist <= 2) return 5;   // very hot
-            else if (dist <= 4) return 4;   // hot
-            else if (dist <= 6) return 3;   // warm
+            else if (dist <= 2) return 6;   // very hot
+            else if (dist <= 4) return 5;   // hot
+            else if (dist <= 6) return 4;   // warm
+            else if (dist <= 9) return 3;   // cool
+            else if (dist <= 13) return 2;  // colder
+            else return 1;                  // cold
+
+        // medium: values 1..4 only
+        } else if ("medium".equals(diffname)) {
+            if (dist == 0) return 0;
+            else if (dist <= 2) return 4;   // hot
+            else if (dist <= 5) return 3;   // warm
             else if (dist <= 9) return 2;   // cool
             else return 1;                  // cold
 
-        } else if ("medium".equals(diffname)) {
+        // hard: values 1..3 only
+        } else { // hard
             if (dist == 0) return 0;
-            else if (dist <= 1) return 7;   // closest
-            else if (dist <= 3) return 6;
-            else if (dist <= 5) return 5;
-            else if (dist <= 7) return 4;
-            else if (dist <= 9) return 3;
-            else if (dist <= 12) return 2;
-            else return 1;
-
-        } else { // hard - only hot or cold
-            if (dist == 0) return 0;
-            else if (dist <= 4) return 2;   // hot
+            else if (dist <= 3) return 3;   // hot
+            else if (dist <= 7) return 2;   // warm-ish
             else return 1;                  // cold
         }
     }
@@ -897,10 +900,9 @@ class GuiWolfy extends JFrame implements ActionListener {
                         g.drawImage(bombPic, x, y, cellSize, cellSize, this);
                     }
 
-                    // draw hot/cold number in the middle for visited safe squares
+                    // draw hot/cold number in the top-right for visited safe squares
                     if (Main.visited != null && Main.visited[r][c]
-                            && (Main.bombs == null || !Main.bombs[r][c])
-                            && !(r == Main.row && c == Main.col)) {
+                            && (Main.bombs == null || !Main.bombs[r][c])) {
                         int heat = Main.getHeatLevelForCell(r, c);
                         if (heat > 0) {
                             g.setColor(Color.WHITE);
