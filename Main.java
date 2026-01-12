@@ -32,9 +32,9 @@ public class Main {
     public static boolean[][] bombs; // true if there is a bomb in the specific cell
     public static int bombcount; // number of bombs on the grid for difficulty settings
 
-    public static void main(String[] args) {
-        run();                     // start the game program (console version)
-    }
+    // public static void main(String[] args) { - only used to debug game logic originally
+    //     run();                     // start the game program (console version)
+    // }
 //ivan
     //main game loop
     public static void run() {
@@ -729,7 +729,6 @@ class GuiWolfy extends JFrame implements ActionListener {
         updateInfo();
         panel.repaint();
         panel.requestFocusInWindow();
-    }
     }
 
     public void actionPerformed(ActionEvent e) {
