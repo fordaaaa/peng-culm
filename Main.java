@@ -548,7 +548,8 @@ class GuiWolfy extends JFrame implements ActionListener {
     private RescuePanel panel;        // draws the grid
     private JLabel infoLabel;         // shows name, difficulty, steps, moves
     private JLabel statusLabel;       // shows messages (bomb, win, etc.)
-    private JLabel moveTrackerLabel;  // extra move tracker on the side
+    private JLabel moveTrackerLabel;  // short summary of steps/moves
+    private JTextArea moveLogArea;    // detailed move log ("name moved right (3)")
 
     private JButton upButton;
     private JButton downButton;
@@ -595,18 +596,33 @@ class GuiWolfy extends JFrame implements ActionListener {
         statusLabel = new JLabel("use the buttons to move", JLabel.CENTER);
         moveTrackerLabel = new JLabel("", JLabel.CENTER);
 
+        // move log area on the side
+        moveLogArea = new JTextArea();
+        moveLogArea.setEditable(false);
+        moveLogArea.setFont(new Font("Monospaced", Font.PLAIN, 11));
+
         // drawing panel
         panel = new RescuePanel();
 
-        // allow WASD keys to control movement as well as buttons
+        // allow WASD keys and arrow keys to control movement as well as buttons
         panel.setFocusable(true);
         panel.addKeyListener(new KeyAdapter() {
             public void keyPressed(KeyEvent e) {
                 char ch = Character.toLowerCase(e.getKeyChar());
-                if (ch == 'w' || ch == 'a' || ch == 's' || ch == 'd') {
-                    doMove(ch);
+                int code = e.getKeyCode();
+
+                // map keys to movement chars used by the game
+                char move = 0;
+                if (ch == 'w' || code == KeyEvent.VK_UP) move = 'w';
+                else if (ch == 's' || code == KeyEvent.VK_DOWN) move = 's';
+                else if (ch == 'a' || code == KeyEvent.VK_LEFT) move = 'a';
+                else if (ch == 'd' || code == KeyEvent.VK_RIGHT) move = 'd';
+
+                if (move == 'w' || move == 'a' || move == 's' || move == 'd') {
+                    doMove(move);
                     updateInfo();
                     panel.repaint();
+
                 } else if (ch == 'f') {
                     // same as scan button
                     int dr = Main.row - Main.wolfrow;
@@ -615,13 +631,16 @@ class GuiWolfy extends JFrame implements ActionListener {
                     if (dc < 0) dc = -dc;
                     int distance = dr + dc;
                     statusLabel.setText("scanner: wolfy is " + distance + " squares away");
+                    logMove("used scan (distance " + distance + ")");
                     updateInfo();
                     panel.repaint();
+
                 } else if (ch == 'g') {
                     // same as give up button
                     done = true;
                     win = false;
                     statusLabel.setText(Main.name + " gave up");
+                    logMove("gave up");
                     updateInfo();
                     panel.repaint();
                 }
@@ -650,13 +669,21 @@ class GuiWolfy extends JFrame implements ActionListener {
         // one empty cell to keep it simple
         buttons.add(new JLabel(""));
 
+        // side panel on the right: short tracker + detailed move log
+        JPanel sidePanel = new JPanel();
+        sidePanel.setLayout(new BorderLayout(5, 5));
+        sidePanel.add(moveTrackerLabel, BorderLayout.NORTH);
+        JScrollPane moveScroll = new JScrollPane(moveLogArea);
+        moveScroll.setPreferredSize(new Dimension(220, 0));
+        sidePanel.add(moveScroll, BorderLayout.CENTER);
+
         // main layout
         JPanel main = new JPanel();
         main.setLayout(new BorderLayout(5, 5));
         main.add(infoLabel, BorderLayout.NORTH);
         main.add(panel, BorderLayout.CENTER);
         main.add(statusLabel, BorderLayout.SOUTH);
-        main.add(moveTrackerLabel, BorderLayout.EAST); // move tracker on the side
+        main.add(sidePanel, BorderLayout.EAST);
 
         getContentPane().setLayout(new BorderLayout(5, 5));
         getContentPane().add(main, BorderLayout.CENTER);
@@ -760,6 +787,7 @@ class GuiWolfy extends JFrame implements ActionListener {
 
         updateInfo();
         panel.repaint();
+        panel.requestFocusInWindow();
     }
 
     private void doMove(char m) {
@@ -769,6 +797,7 @@ class GuiWolfy extends JFrame implements ActionListener {
             Main.domove(m);
             Main.steps++;
             Main.visited[Main.row][Main.col] = true;
+            logMove(describeMove(m));
 
             if (Main.moves > -1) {
                 Main.movesleft--;
@@ -776,6 +805,7 @@ class GuiWolfy extends JFrame implements ActionListener {
 
             if (Main.bombs[Main.row][Main.col]) {
                 statusLabel.setText("boom! " + Main.name + " stepped on a mine");
+                logMove("hit a mine");
                 JOptionPane.showMessageDialog(this,
                         "BOOM! You hit a mine!",
                         "Explosion",
@@ -785,11 +815,13 @@ class GuiWolfy extends JFrame implements ActionListener {
 
             } else if (Main.row == Main.wolfrow && Main.col == Main.wolfcol) {
                 statusLabel.setText("you rescued wolfy!");
+                logMove("rescued wolfy");
                 done = true;
                 win = true;
 
             } else if (Main.moves > -1 && Main.movesleft < 0) {
                 statusLabel.setText("you ran out of moves");
+                logMove("ran out of moves");
                 done = true;
                 win = false;
 
@@ -798,7 +830,23 @@ class GuiWolfy extends JFrame implements ActionListener {
             }
         } else {
             statusLabel.setText("cant move outside the grid");
+            logMove("invalid move");
         }
+    }
+
+    // helper to describe a movement direction as text
+    private String describeMove(char m) {
+        if (m == 'w') return "moved up";
+        else if (m == 's') return "moved down";
+        else if (m == 'a') return "moved left";
+        else if (m == 'd') return "moved right";
+        return "moved";
+    }
+
+    // add a line to the move log, including current step number
+    private void logMove(String action) {
+        moveLogArea.append(Main.name + " " + action + " (" + Main.steps + ")\n");
+        moveLogArea.setCaretPosition(moveLogArea.getDocument().getLength());
     }
 
     // small panel that draws the grid using the same data as the console version
@@ -858,8 +906,9 @@ class GuiWolfy extends JFrame implements ActionListener {
                             g.setColor(Color.WHITE);
                             String text = Integer.toString(heat);
                             FontMetrics fm = g.getFontMetrics();
-                            int textX = x + (cellSize - fm.stringWidth(text)) / 2;
-                            int textY = y + (cellSize + fm.getAscent()) / 2 - 2;
+                            // move number slightly up and right inside the cell
+                            int textX = x + cellSize - fm.stringWidth(text) - 4;
+                            int textY = y + fm.getAscent() + 2;
                             g.drawString(text, textX, textY);
                         }
                     }
