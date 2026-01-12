@@ -32,9 +32,37 @@ public class Main {
     public static boolean[][] bombs; // true if there is a bomb in the specific cell
     public static int bombcount; // number of bombs on the grid for difficulty settings
 
-    // main entry point for console version
+    // main entry point - choose console or GUI version
     public static void main(String[] args) {
-        run();                     // start the game program (console version)
+        Scanner in = new Scanner(System.in);
+        int choice = 0;
+
+        // simple menu: 1 = console, 2 = gui
+        while (choice != 1 && choice != 2) {
+            System.out.println("choose version:");
+            System.out.println("1 console (text)");
+            System.out.println("2 gui (window)");
+            System.out.print("enter 1 or 2: ");
+
+            String s = in.nextLine().trim();
+            try {
+                choice = Integer.parseInt(s);
+            } catch (NumberFormatException e) {
+                choice = 0;
+            }
+            if (choice != 1 && choice != 2) {
+                System.out.println("please enter 1 or 2");
+            }
+        }
+
+        // we can close this scanner now; console version will create its own
+        in.close();
+
+        if (choice == 1) {
+            run();                     // start the console game
+        } else {
+            new GuiWolfy();            // start the GUI version
+        }
     }
 //ivan
     //main game loop
