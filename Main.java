@@ -2,11 +2,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-/**
- * Standalone GUI-only version of Rescue Wolfy.
- * No console/text code is included here.
- */
-public class MainGui extends JFrame implements ActionListener {
+public class Main extends JFrame implements ActionListener {
 
     //game settings
     private int rows;               // number of rows in the grid
@@ -26,7 +22,7 @@ public class MainGui extends JFrame implements ActionListener {
     private int steps;              // steps taken
     private int movesleft;          // remaining moves if limited
 
-    //bomb state (single chasing bomb)
+    //bomb state 
     private int bombRow;
     private int bombCol;
 
@@ -51,7 +47,7 @@ public class MainGui extends JFrame implements ActionListener {
     private String playerName;      // stored name for GUI runs
     private int guiDifficulty;      // difficulty chosen for GUI (1,2,3)
 
-    public MainGui() {
+    public Main() {
         super("Rescue Wolfy!");
 
         // ask for name using a simple dialog
@@ -477,6 +473,6 @@ public class MainGui extends JFrame implements ActionListener {
     }
 
     public static void main(String[] args) {
-        new MainGui();
+        new Main();
     }
 }

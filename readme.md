@@ -1,5 +1,4 @@
-**Status / To‑Do**
+**Todo:**
 
-- Optional polish ideas
-  - add sound or GIF for explosions
-  - increase hot/cold number ranges per difficulty if needed
+- optionals
+  - add sound or GIF for explosion
