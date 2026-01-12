@@ -202,14 +202,19 @@ public class MainGui extends JFrame implements ActionListener {
                     "2 medium (60 moves)\n" +
                     "3 hard (40 moves)");
             if (input == null) {
-                d = 2; // default to medium
+                // if they cancel, just use medium
+                d = 2;
                 break;
             }
             input = input.trim();
-            try {
-                d = Integer.parseInt(input);
-            } catch (NumberFormatException e) {
-                d = 0; // force loop again
+            if (input.length() > 0) {
+                char ch = input.charAt(0);
+                if (ch == '1') d = 1;
+                else if (ch == '2') d = 2;
+                else if (ch == '3') d = 3;
+                else d = 0; // invalid, ask again
+            } else {
+                d = 0; // empty, ask again
             }
         }
         return d;
