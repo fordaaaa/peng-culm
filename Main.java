@@ -336,18 +336,34 @@ public class Main {
 
     }
 
-    //return a simple "heat" level for a cell based on distance from wolfy
+    //return a simple "heat" level for a cell based on distance from the nearest bomb
     //higher number = closer (hotter)
     public static int getHeatLevelForCell(int r, int c) {
-        int dr = r - wolfrow;
-        if (dr < 0) dr = -dr;
-        int dc = c - wolfcol;
-        if (dc < 0) dc = -dc;
-        int dist = dr + dc; // manhattan distance
+        // find distance to the closest bomb on the board
+        int closest = Integer.MAX_VALUE;
+        if (bombs != null) {
+            for (int br = 0; br < rows; br++) {
+                for (int bc = 0; bc < cols; bc++) {
+                    if (bombs[br][bc]) {
+                        int dr = r - br;
+                        if (dr < 0) dr = -dr;
+                        int dc = c - bc;
+                        if (dc < 0) dc = -dc;
+                        int dist = dr + dc; // manhattan distance
+                        if (dist < closest) closest = dist;
+                    }
+                }
+            }
+        }
+
+        // if somehow there are no bombs, just return 0 (no heat)
+        if (closest == Integer.MAX_VALUE) return 0;
+
+        int dist = closest;
 
         // easy: values 1..6 only
         if ("easy".equals(diffname)) {
-            if (dist == 0) return 0;        // on wolfy
+            if (dist == 0) return 0;        // on a bomb
             else if (dist <= 2) return 6;   // very hot
             else if (dist <= 4) return 5;   // hot
             else if (dist <= 6) return 4;   // warm
