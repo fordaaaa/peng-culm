@@ -1,6 +1,8 @@
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.*;
+import java.util.*;          // leaderboard file I/O
+import javax.swing.*;        // sorting leaderboard
 
 public class Main extends JFrame implements ActionListener {
 
@@ -26,6 +28,9 @@ public class Main extends JFrame implements ActionListener {
     private int bombRow;
     private int bombCol;
 
+    // leaderboard
+    private static final String LEADERBOARD_FILE = "leaderboard.txt";
+
     // GUI components
     private RescuePanel panel;      // draws the grid
     private JLabel infoLabel;       // shows name, difficulty, steps, moves
@@ -46,7 +51,7 @@ public class Main extends JFrame implements ActionListener {
 
     private String playerName;      // stored name for GUI runs
     private int guiDifficulty;      // difficulty chosen for GUI (1,2,3)
-
+    //ivan
     public Main() {
         super("Rescue Wolfy!");
 
@@ -119,7 +124,7 @@ public class Main extends JFrame implements ActionListener {
                 }
             }
         });
-
+        //jaden
         // buttons panel
         JPanel buttons = new JPanel();
         buttons.setLayout(new GridLayout(2, 4, 5, 5));
@@ -170,7 +175,7 @@ public class Main extends JFrame implements ActionListener {
         setVisible(true);
         panel.requestFocusInWindow();
     }
-
+    //ivan
     private JButton makeButton(String text, String command) {
         JButton b = new JButton(text);
         b.setActionCommand(command);
@@ -187,7 +192,7 @@ public class Main extends JFrame implements ActionListener {
 
         moveTrackerLabel.setText("<html>steps: " + steps + "<br>" + movesText + "</html>");
     }
-
+    //jaden
     // ask the user for difficulty using a simple number input dialog
     private int askDifficulty() {
         int d = 0;
@@ -195,8 +200,8 @@ public class Main extends JFrame implements ActionListener {
             String input = JOptionPane.showInputDialog(this,
                     "choose difficulty:\n" +
                     "1 easy (40 moves limit)\n" +
-                    "2 medium (25 moves limit)\n" +
-                    "3 hard (15 moves limit)");
+                    "2 medium (30 moves limit)\n" +
+                    "3 hard (20 moves limit)");
             if (input == null) {
                 // deafult is to just use medium
                 d = 2;
@@ -215,7 +220,7 @@ public class Main extends JFrame implements ActionListener {
         }
         return d;
     }
-
+    //jaden
     private void startNewGame() {
         name = playerName;
         setup(guiDifficulty);
@@ -227,7 +232,7 @@ public class Main extends JFrame implements ActionListener {
         panel.repaint();
         panel.requestFocusInWindow();
     }
-
+    //ivan
     public void actionPerformed(ActionEvent e) {
         String cmd = e.getActionCommand();
 
@@ -258,7 +263,7 @@ public class Main extends JFrame implements ActionListener {
         panel.repaint();
         panel.requestFocusInWindow();
     }
-
+    //ivan
     private void setup(int d) {
         if (d == 1) {
             rows = 10;
@@ -268,16 +273,16 @@ public class Main extends JFrame implements ActionListener {
         } else if (d == 2) {
             rows = 10;
             cols = 10;
-            moves = 25;          // medium: 25 moves
+            moves = 30;          // medium: 25 moves
             diffname = "medium";
         } else {
             rows = 12;
             cols = 12;
-            moves = 15;          // hard: 15 moves
+            moves = 20;          // hard: 15 moves
             diffname = "hard";
         }
     }
-
+    //ivan
     private void init() {
         visited = new boolean[rows][cols];
         row = 0;
@@ -303,7 +308,7 @@ public class Main extends JFrame implements ActionListener {
         steps = 0;
         movesleft = moves;
     }
-
+    //ivan
     private boolean canmove(char m) {
         int nr = row;
         int nc = col;
@@ -334,9 +339,6 @@ public class Main extends JFrame implements ActionListener {
 
             if (moves > -1) movesleft--;
 
-            // move bomb one tile closer to the player (no diagonal)
-            // moveBombTowardPlayer(); using a chance type move only
-
             double chance = Math.random(); // 50% chance to move bomb
             if (chance < 0.50) {
                 moveBombTowardPlayer();
@@ -356,6 +358,11 @@ public class Main extends JFrame implements ActionListener {
                 logMove("rescued wolfy");
                 done = true;
                 win = true;
+                saveToLeaderboard();
+                JOptionPane.showMessageDialog(this,
+                        getLeaderboardText(),
+                        "Leaderboard",
+                        JOptionPane.INFORMATION_MESSAGE);
             } else if (moves > -1 && movesleft < 0) {
                 statusLabel.setText("you ran out of moves");
                 logMove("ran out of moves");
@@ -369,7 +376,7 @@ public class Main extends JFrame implements ActionListener {
             logMove("invalid move");
         }
     }
-
+    //jaden
     // move the bomb one step closer to the player plus-type moves only
     private void moveBombTowardPlayer() {
         if (done) return;
@@ -378,7 +385,7 @@ public class Main extends JFrame implements ActionListener {
         else if (bombCol < col) bombCol++;
         else if (bombCol > col) bombCol--;
     }
-
+    //jaden
     private String describeMove(char m) {
         if (m == 'w') return "moved up";
         else if (m == 's') return "moved down";
@@ -386,12 +393,50 @@ public class Main extends JFrame implements ActionListener {
         else if (m == 'd') return "moved right";
         return "moved";
     }
-
+    //jaden
     private void logMove(String action) {
         moveLogArea.append(name + " " + action + " (" + steps + ")\n");
         moveLogArea.setCaretPosition(moveLogArea.getDocument().getLength());
     }
+    //ivan
+    // leaderboard save
+    private void saveToLeaderboard() {
+        if (!win) return;
+        try (PrintWriter out = new PrintWriter(new FileWriter(LEADERBOARD_FILE, true))) {
+            out.println(name + "," + diffname + "," + steps);
+        } catch (IOException e) {
+        }
+    }
+    //ivan
+    // leaderboard read + sort
+    private String getLeaderboardText() {
+        File file = new File(LEADERBOARD_FILE);
+        if (!file.exists()) return "No scores yet.";
 
+        ArrayList<String> list = new ArrayList<>();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                list.add(line);
+            }
+        } catch (IOException e) {
+            return "Error reading leaderboard.";
+        }
+
+        list.sort((a, b) -> Integer.parseInt(a.split(",")[2]) - Integer.parseInt(b.split(",")[2]));
+
+        StringBuilder sb = new StringBuilder("LEADERBOARD\n\n");
+        for (int i = 0; i < Math.min(10, list.size()); i++) {
+            String[] p = list.get(i).split(",");
+            sb.append(i + 1).append(". ")
+              .append(p[0]).append(" | ")
+              .append(p[1]).append(" | ")
+              .append(p[2]).append(" steps\n");
+        }
+        return sb.toString();
+    }
+    //ivan
     //return a simple "heat" level for a cell based on distance from the bomb
     //higher number = closer (hotter)
     private int getHeatLevelForCell(int r, int c) {
@@ -401,16 +446,15 @@ public class Main extends JFrame implements ActionListener {
         if (dc < 0) dc = -dc;
         int dist = dr + dc; // manhattan distance to bomb
 
-        // same mapping for all difficulties (1..6)
-        if (dist == 0) return 0;       // bomb tile itself
-        else if (dist <= 2) return 6;  // very hot
-        else if (dist <= 4) return 5;  // hot
-        else if (dist <= 6) return 4;  // warm
-        else if (dist <= 9) return 3;  // cool
-        else if (dist <= 13) return 2; // colder
-        else return 1;                 // cold
+        if (dist == 0) return 0;
+        else if (dist <= 2) return 6;
+        else if (dist <= 4) return 5;
+        else if (dist <= 6) return 4;
+        else if (dist <= 9) return 3;
+        else if (dist <= 13) return 2;
+        else return 1;
     }
-
+    //ivan
     // panel that draws the grid
     class RescuePanel extends JPanel {
 
