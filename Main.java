@@ -29,7 +29,8 @@ public class Main extends JFrame implements ActionListener {
     private int bombCol;
 
     // leaderboard
-    private static final String LEADERBOARD_FILE = "leaderboard.txt";
+    private static final String LEADERBOARD_FILE = "util/leaderboard.txt";
+
 
     // GUI components
     private RescuePanel panel;      // draws the grid
@@ -66,6 +67,14 @@ public class Main extends JFrame implements ActionListener {
         guiDifficulty = askDifficulty();
         setup(guiDifficulty);
         init();
+
+        JOptionPane.showMessageDialog(this,
+                "Rules\n\n" +
+                "• The number at the top of each square shows how close the bomb is.\n" +
+                "• Press F to scan how far away Wolfy is.\n" +
+                "• The leaderboard appears after the game ends.",
+                "Rules",
+                JOptionPane.INFORMATION_MESSAGE);
 
         done = false;
         win = false;
@@ -351,6 +360,13 @@ public class Main extends JFrame implements ActionListener {
                         "BOOM! You hit a mine!",
                         "Explosion!",
                         JOptionPane.ERROR_MESSAGE);
+                
+                // leaderboard AFTER explosion (no saving on loss)
+                JOptionPane.showMessageDialog(this,
+                        getLeaderboardText(),
+                        "Leaderboard",
+                        JOptionPane.INFORMATION_MESSAGE);
+                
                 done = true;
                 win = false;
             } else if (row == wolfrow && col == wolfcol) {
@@ -399,11 +415,40 @@ public class Main extends JFrame implements ActionListener {
         moveLogArea.setCaretPosition(moveLogArea.getDocument().getLength());
     }
     //ivan
-    // leaderboard save
+    // leaderboard save - only keeps top 5 scores
     private void saveToLeaderboard() {
         if (!win) return;
-        try (PrintWriter out = new PrintWriter(new FileWriter(LEADERBOARD_FILE, true))) {
-            out.println(name + "," + diffname + "," + steps);
+        
+        File file = new File(LEADERBOARD_FILE);
+        ArrayList<String> list = new ArrayList<>();
+        
+        // read existing scores
+        if (file.exists()) {
+            try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    list.add(line);
+                }
+            } catch (IOException e) {
+            }
+        }
+        
+        // add new score
+        list.add(name + "," + diffname + "," + steps);
+        
+        // sort by steps (ascending)
+        list.sort((a, b) -> Integer.parseInt(a.split(",")[2]) - Integer.parseInt(b.split(",")[2]));
+        
+        // keep only top 5
+        if (list.size() > 5) {
+            list = new ArrayList<>(list.subList(0, 5));
+        }
+        
+        // write back to file
+        try (PrintWriter out = new PrintWriter(new FileWriter(LEADERBOARD_FILE))) {
+            for (String score : list) {
+                out.println(score);
+            }
         } catch (IOException e) {
         }
     }
@@ -427,7 +472,7 @@ public class Main extends JFrame implements ActionListener {
         list.sort((a, b) -> Integer.parseInt(a.split(",")[2]) - Integer.parseInt(b.split(",")[2]));
 
         StringBuilder sb = new StringBuilder("LEADERBOARD\n\n");
-        for (int i = 0; i < Math.min(10, list.size()); i++) {
+        for (int i = 0; i < Math.min(5, list.size()); i++) {
             String[] p = list.get(i).split(",");
             sb.append(i + 1).append(". ")
               .append(p[0]).append(" | ")
@@ -489,7 +534,7 @@ public class Main extends JFrame implements ActionListener {
                         g.drawImage(playerPic, x, y, cellSize, cellSize, this);
                     }
 
-                    if (visited != null && visited[r][c] && r == bombRow && c == bombCol && bombPic != null) {
+                    if (done && !win && r == bombRow && c == bombCol && bombPic != null) {
                         g.drawImage(bombPic, x, y, cellSize, cellSize, this);
                     }
 

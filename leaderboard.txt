@@ -1,3 +1,0 @@
-ivan,easy,17
-jaden,hard,12
-jaden,hard,21
