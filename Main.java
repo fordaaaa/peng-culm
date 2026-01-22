@@ -544,10 +544,10 @@ public class Main extends JFrame implements ActionListener {
     // returns: none
     private void showabout() {
         String msg = "Rescue Wolfy\n" +
-                "Author: Aiden\n" +
-                "Date: January 1 2026\n" +
-                "Course: ICS3U1\n" +
-                "Description: jungle grid rescue game with fog-of-war, mines, and a leaderboard.";
+                "- Aiden F.\n" +
+                "January 1 2026\n" +
+                "ICS3U1 Culminating\n" +
+                "Jungle grid game based on finding\nWolfy, where there are mines that move...";
         JOptionPane.showMessageDialog(this, msg, "About", JOptionPane.INFORMATION_MESSAGE);
     }
 
