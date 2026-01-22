@@ -1,8 +1,8 @@
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
-import java.util.*;          // leaderboard file I/O
-import javax.swing.*;        // sorting leaderboard
+import java.util.*;
+import javax.swing.*;  
 import javax.swing.border.*;
 
 public class Main extends JFrame implements ActionListener {
@@ -16,8 +16,8 @@ public class Main extends JFrame implements ActionListener {
     private int moves;              // move limit (-1 means unlimited moves)
     private String diffname;        // name of difficulty chosen
 
-    // view settings for fog-of-war
-    private static final int VIEW_SIZE = 10;       // 10x10 area visible on screen
+    // view settings 
+    private static final int VIEW_SIZE = 10;       // 10x10 area visible
     private static final int VIEW_RADIUS = VIEW_SIZE / 2; // tiles in each direction from player
 
     //board state
