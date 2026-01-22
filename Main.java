@@ -12,6 +12,10 @@ public class Main extends JFrame implements ActionListener {
     private int moves;              // move limit (-1 means unlimited moves)
     private String diffname;        // name of difficulty chosen
 
+    // view settings for fog-of-war
+    private static final int VIEW_SIZE = 10;       // 10x10 area visible on screen
+    private static final int VIEW_RADIUS = VIEW_SIZE / 2; // tiles in each direction from player
+
     //board state
     private boolean[][] visited;    // tracks which cells were visited
     private int row;                // current player row
@@ -69,10 +73,10 @@ public class Main extends JFrame implements ActionListener {
         init();
 
         // start game sounds (intro + background ambience)
-        SoundHandling.playGameStart();
+        SoundHandling.playstartupsound();
         SoundHandling.startBackgroundLoop();
 
-        SoundHandling.playPageturn();
+        SoundHandling.playpageturn();
         JOptionPane.showMessageDialog(this,
                 "Rules\n\n" +
                 "• The number at the top of each square shows how close the bomb is.\n" +
@@ -244,7 +248,7 @@ public class Main extends JFrame implements ActionListener {
         statusLabel.setText("new game started");
 
         // restart intro sound and background ambience for the new game
-        SoundHandling.playGameStart();
+        SoundHandling.playstartupsound();
         SoundHandling.startBackgroundLoop();
         updateInfo();
         panel.repaint();
@@ -284,19 +288,19 @@ public class Main extends JFrame implements ActionListener {
     //ivan
     private void setup(int d) {
         if (d == 1) {
-            rows = 10;
-            cols = 10;
+            rows = 100;
+            cols = 100;
             moves = 40;          // easy: 40 moves
             diffname = "easy";
         } else if (d == 2) {
-            rows = 10;
-            cols = 10;
-            moves = 30;          // medium: 25 moves
+            rows = 100;
+            cols = 100;
+            moves = 30;          // medium: 30 moves
             diffname = "medium";
         } else {
-            rows = 12;
-            cols = 12;
-            moves = 20;          // hard: 15 moves
+            rows = 100;
+            cols = 100;
+            moves = 20;          // hard: 20 moves
             diffname = "hard";
         }
     }
@@ -357,7 +361,7 @@ public class Main extends JFrame implements ActionListener {
             logMove(describeMove(m));
 
             // play movement sound each time the player moves
-            SoundHandling.playMove();
+            SoundHandling.playmove();
 
             // decrease remaining moves (if limited)
             if (moves > -1) movesleft--;
@@ -375,10 +379,10 @@ public class Main extends JFrame implements ActionListener {
             if (dc < 0) dc = -dc;
             int dist = dr + dc;
             if (dist <= 4) {
-                SoundHandling.playHeartbeat2();
-                SoundHandling.playBreathing();
+                SoundHandling.playheartbeat2();
+                SoundHandling.playbreathing();
             } else if (dist <= 8) {
-                SoundHandling.playHeartbeat1();
+                SoundHandling.playheartbeat1();
             }
 
             // check for hitting bomb, rescuing wolfy, or running out of moves
@@ -387,7 +391,7 @@ public class Main extends JFrame implements ActionListener {
                 logMove("hit a mine");
 
                 // explosion sound and stop ambience
-                SoundHandling.playExplosion();
+                SoundHandling.playboom();
                 SoundHandling.stopBackgroundLoop();
 
                 JOptionPane.showMessageDialog(this,
@@ -396,7 +400,7 @@ public class Main extends JFrame implements ActionListener {
                         JOptionPane.ERROR_MESSAGE);
                 
                 // leaderboard AFTER explosion (no saving on loss)
-                SoundHandling.playPageturn();
+                SoundHandling.playpageturn();
                 JOptionPane.showMessageDialog(this,
                         getLeaderboardText(),
                         "Leaderboard",
@@ -409,14 +413,14 @@ public class Main extends JFrame implements ActionListener {
                 logMove("rescued wolfy");
 
                 // victory sound and stop ambience
-                SoundHandling.playVictory();
+                SoundHandling.playwin();
                 SoundHandling.stopBackgroundLoop();
 
                 done = true;
                 win = true;
                 saveToLeaderboard();
 
-                SoundHandling.playPageturn();
+                SoundHandling.playpageturn();
                 JOptionPane.showMessageDialog(this,
                         getLeaderboardText(),
                         "Leaderboard",
@@ -565,27 +569,56 @@ public class Main extends JFrame implements ActionListener {
             super.paintComponent(g);
             if (rows <= 0 || cols <= 0) return;
 
-            int cellSize = Math.min(getWidth() / cols, getHeight() / rows);
-            int offsetX = (getWidth() - cellSize * cols) / 2;
-            int offsetY = (getHeight() - cellSize * rows) / 2;
+            // each tile size is based on the 10x10 view, not the full 100x100 world
+            int cellSize = Math.min(getWidth() / VIEW_SIZE, getHeight() / VIEW_SIZE);
+            int offsetX = (getWidth() - cellSize * VIEW_SIZE) / 2;
+            int offsetY = (getHeight() - cellSize * VIEW_SIZE) / 2;
 
-            for (int r = 0; r < rows; r++) {
-                for (int c = 0; c < cols; c++) {
-                    int x = offsetX + c * cellSize;
-                    int y = offsetY + r * cellSize;
+            // world coordinates for the top-left of the visible window
+            int startRow = row - VIEW_RADIUS;
+            int startCol = col - VIEW_RADIUS;
 
-                    if (floorPic != null) g.drawImage(floorPic, x, y, cellSize, cellSize, this);
+            for (int vr = 0; vr < VIEW_SIZE; vr++) {
+                for (int vc = 0; vc < VIEW_SIZE; vc++) {
+                    int wr = startRow + vr; // world row
+                    int wc = startCol + vc; // world col
 
-                    if (r == row && c == col && playerPic != null) {
+                    int x = offsetX + vc * cellSize;
+                    int y = offsetY + vr * cellSize;
+
+                    // outside the world: draw dark fog tile
+                    if (wr < 0 || wr >= rows || wc < 0 || wc >= cols) {
+                        g.setColor(Color.DARK_GRAY);
+                        g.fillRect(x, y, cellSize, cellSize);
+                        g.setColor(Color.BLACK);
+                        g.drawRect(x, y, cellSize, cellSize);
+                        continue;
+                    }
+
+                    // base floor tile
+                    if (floorPic != null) {
+                        g.drawImage(floorPic, x, y, cellSize, cellSize, this);
+                    } else {
+                        g.setColor(new Color(0, 100, 0));
+                        g.fillRect(x, y, cellSize, cellSize);
+                    }
+
+                    // TODO: later add different grass / tree tiles or simple animations here
+                    // based on wr, wc or on the current time/step to animate the player sprite.
+
+                    // draw player sprite
+                    if (wr == row && wc == col && playerPic != null) {
                         g.drawImage(playerPic, x, y, cellSize, cellSize, this);
                     }
 
-                    if (done && !win && r == bombRow && c == bombCol && bombPic != null) {
+                    // show bomb only when game is over and player lost
+                    if (done && !win && wr == bombRow && wc == bombCol && bombPic != null) {
                         g.drawImage(bombPic, x, y, cellSize, cellSize, this);
                     }
 
-                    if (visited != null && visited[r][c] && !(r == bombRow && c == bombCol)) {
-                        int heat = getHeatLevelForCell(r, c);
+                    // heat numbers on visited tiles (not including bomb tile)
+                    if (visited != null && visited[wr][wc] && !(wr == bombRow && wc == bombCol)) {
+                        int heat = getHeatLevelForCell(wr, wc);
                         if (heat > 0) {
                             g.setColor(Color.WHITE);
                             String text = Integer.toString(heat);
@@ -596,10 +629,12 @@ public class Main extends JFrame implements ActionListener {
                         }
                     }
 
-                    if (done && r == wolfrow && c == wolfcol && wolfyPic != null) {
+                    // show wolfy when game is finished and position is known
+                    if (done && wr == wolfrow && wc == wolfcol && wolfyPic != null) {
                         g.drawImage(wolfyPic, x, y, cellSize, cellSize, this);
                     }
 
+                    // grid outline
                     g.setColor(Color.BLACK);
                     g.drawRect(x, y, cellSize, cellSize);
                 }
