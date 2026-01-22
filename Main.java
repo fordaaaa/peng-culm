@@ -6,6 +6,9 @@ import javax.swing.*;        // sorting leaderboard
 import javax.swing.border.*;
 
 public class Main extends JFrame implements ActionListener {
+    private static final int TILE_GRASS = 0;
+    private static final int TILE_SAND  = 1;
+    private static final int TILE_PATH  = 2;
 
     //game settings
     private int rows;               // number of rows in the grid
@@ -854,7 +857,7 @@ public class Main extends JFrame implements ActionListener {
         visited[row][col] = true;
 
         // generate terrain
-        tileType = WorldGeneration.generatetiles(rows, cols);
+        tileType = generatetiles(rows, cols);
 
         // randomly place wolfy somewhere not equal to player start
         wolfrow = (int)(Math.random() * rows);
@@ -1247,11 +1250,11 @@ public class Main extends JFrame implements ActionListener {
                     }
 
                     // base floor tile based on generated terrain using tile sprites
-                    int baseType = (tileType != null ? tileType[wr][wc] : WorldGeneration.TILE_GRASS);
+                    int baseType = (tileType != null ? tileType[wr][wc] : TILE_GRASS);
                     Image tileImg = null;
-                    if (baseType == WorldGeneration.TILE_GRASS) {
+                    if (baseType == TILE_GRASS) {
                         tileImg = Animations.gettile_grass(wr, wc);
-                    } else if (baseType == WorldGeneration.TILE_SAND) {
+                    } else if (baseType == TILE_SAND) {
                         tileImg = Animations.gettile_sand(wr, wc);
                     } else {
                         tileImg = Animations.gettile_path();
@@ -1261,9 +1264,9 @@ public class Main extends JFrame implements ActionListener {
                         g.drawImage(tileImg, x, y, cellSize, cellSize, this);
                     } else {
                         // fallback colors if sprites are missing
-                        if (baseType == WorldGeneration.TILE_GRASS) {
+                        if (baseType == TILE_GRASS) {
                             g.setColor(new Color(0, 100, 0));
-                        } else if (baseType == WorldGeneration.TILE_SAND) {
+                        } else if (baseType == TILE_SAND) {
                             g.setColor(new Color(170, 150, 80));
                         } else {
                             g.setColor(new Color(120, 80, 40));
@@ -1330,6 +1333,37 @@ public class Main extends JFrame implements ActionListener {
     // parms: args
     // returns: none
     public static void main(String[] args) {
+        try {
+            Animations.init();
+        } catch (Exception e) {}
         new Main();
+    }
+
+    private static int[][] generatetiles(int rows, int cols) {
+        int[][] tiles = new int[rows][cols];
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                tiles[r][c] = TILE_GRASS;
+            }
+        }
+
+        Random rng = new Random();
+        int numSandPatches = Math.max(10, (rows * cols) / 150);
+        for (int i = 0; i < numSandPatches; i++) {
+            int centerR = rng.nextInt(rows);
+            int centerC = rng.nextInt(cols);
+            int radius = 2 + rng.nextInt(2);
+            for (int dr = -radius; dr <= radius; dr++) {
+                for (int dc = -radius; dc <= radius; dc++) {
+                    int rr = centerR + dr;
+                    int cc = centerC + dc;
+                    if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
+                    if (dr * dr + dc * dc <= radius * radius) {
+                        tiles[rr][cc] = TILE_SAND;
+                    }
+                }
+            }
+        }
+        return tiles;
     }
 }
