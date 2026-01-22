@@ -24,14 +24,22 @@ public class Main extends JFrame implements ActionListener {
     private int wolfrow;            // wolfy row position
     private int wolfcol;            // wolfy column position
 
-    // world tiles and bushes
+    // world tiles
     private int[][] tileType;       // 0 = grass, 1 = sand, 2 = path
-    private int[][] bushIndex;      // -1 = no bush, 0..9 = bush sprite index
 
     //player state
     private String name;            // player name
     private int steps;              // steps taken
     private int movesleft;          // remaining moves if limited
+    private char lastMove;          // last movement direction ('w','s','a','d')
+    private int animFrame;          // current animation frame index
+    private int selectedCharacter;  // 0-3 for character selection
+    private long lastMoveTime;      // for rate limiting moves
+    private boolean dying;          // death cutscene flag
+    private int deathRow;           // where explosion happens
+    private int deathCol;
+    private int deathFrame;         // 0..6
+    private javax.swing.Timer deathTimer;       // advances explosion frames
 
     //bomb state 
     private int bombRow;
@@ -52,7 +60,6 @@ public class Main extends JFrame implements ActionListener {
     private RescuePanel panel;      // draws the grid
     private JLabel infoLabel;       // shows name, difficulty, steps, moves
     private JLabel statusLabel;     // shows messages (bomb, win, etc.)
-    private JLabel moveTrackerLabel;// short summary of steps/moves
     private JTextArea moveLogArea;  // detailed move log ("name moved right (3)")
 
     private JButton upButton;
@@ -72,7 +79,23 @@ public class Main extends JFrame implements ActionListener {
     // card names for CardLayout
     private static final String card_title = "title";
     private static final String card_game  = "game";
+    private static final String card_instructions = "instructions";
+    private static final String card_setup = "setup";
 
+    // instructions UI state
+    private int instructionsPage = 0;
+    private JLabel instructionsText;
+    
+    // setup UI components
+    private JTextField nameField;
+    private JRadioButton easyButton, mediumButton, hardButton;
+    private JRadioButton char0Button, char1Button, char2Button, char3Button;
+    private JPanel sidePanel;       // side panel with move logger
+    private JButton toggleLogButton; // button to show/hide move logger
+
+    // description: create the main window and build all screens
+    // parms: none
+    // returns: none
     public Main() {
         super("Rescue Wolfy!");
 
@@ -80,11 +103,15 @@ public class Main extends JFrame implements ActionListener {
         cardlayout = new CardLayout();
         mainPanel = new JPanel(cardlayout);
 
-        // build title screen and game screen
+        // build title screen, instructions screen, setup screen, and game screen
         JPanel titlepanel = createtitlepanel();
+        JPanel instructionspanel = createinstructionspanel();
+        JPanel setuppanel = createsetuppanel();
         JPanel gamepanel = creategamepanel();
 
         mainPanel.add(titlepanel, card_title);
+        mainPanel.add(instructionspanel, card_instructions);
+        mainPanel.add(setuppanel, card_setup);
         mainPanel.add(gamepanel, card_game);
 
         setContentPane(mainPanel);
@@ -98,10 +125,19 @@ public class Main extends JFrame implements ActionListener {
 
         // show title screen first
         cardlayout.show(mainPanel, card_title);
+
+        // start menu music on title screen
+        SoundHandling.startmenumusic();
+
         setVisible(true);
     }
 
     // build the title screen panel
+    // parms: none
+    // returns: title panel
+    // description: create the title screen panel
+    // parms: none
+    // returns: title panel
     private JPanel createtitlepanel() {
         JPanel title = new JPanel(new BorderLayout(10, 10)) {
             protected void paintComponent(Graphics g) {
@@ -139,7 +175,7 @@ public class Main extends JFrame implements ActionListener {
 
         JPanel center = new JPanel();
         center.setOpaque(false);
-        center.setLayout(new GridLayout(3, 1, 12, 12));
+        center.setLayout(new GridLayout(4, 1, 12, 12));
 
         JButton playbutton = makebuttonstyled("Play");
         playbutton.setFont(new Font("SansSerif", Font.BOLD, 20));
@@ -155,6 +191,10 @@ public class Main extends JFrame implements ActionListener {
 
         center.add(playbutton);
         center.add(instrbutton);
+        JButton aboutbutton = makebuttonstyled("About");
+        aboutbutton.setFont(new Font("SansSerif", Font.BOLD, 20));
+        aboutbutton.addActionListener(e -> showabout());
+        center.add(aboutbutton);
         center.add(quitbutton);
 
         JPanel card = new JPanel(new BorderLayout(10, 10));
@@ -171,7 +211,276 @@ public class Main extends JFrame implements ActionListener {
         return title;
     }
 
+    // build the instructions screen panel with paged text and sounds
+    // description: create the instructions screen panel
+    // parms: none
+    // returns: instructions panel
+    private JPanel createinstructionspanel() {
+        JPanel outer = new JPanel(new BorderLayout(10, 10));
+        outer.setBackground(new Color(0, 45, 50));
+        outer.setBorder(new EmptyBorder(40, 80, 60, 80));
+
+        JLabel title = new JLabel("Instructions", JLabel.CENTER);
+        title.setFont(new Font("Serif", Font.BOLD, 36));
+        title.setForeground(new Color(220, 255, 240));
+        title.setBorder(new EmptyBorder(0, 0, 20, 0));
+
+        instructionsText = new JLabel("", JLabel.CENTER);
+        instructionsText.setFont(new Font("SansSerif", Font.PLAIN, 18));
+        instructionsText.setForeground(new Color(210, 240, 235));
+
+        JPanel center = new JPanel(new BorderLayout());
+        center.setOpaque(false);
+        center.add(instructionsText, BorderLayout.CENTER);
+
+        JButton back = makebuttonstyled("Back");
+        JButton next = makebuttonstyled("Next");
+        JButton done = makebuttonstyled("Done");
+
+        back.addActionListener(e -> {
+            if (instructionsPage > 0) {
+                instructionsPage--;
+                updateinstructionstext();
+            }
+        });
+
+        next.addActionListener(e -> {
+            // advance page with click + page turn sound
+            if (instructionsPage < 3) {
+                instructionsPage++;
+                SoundHandling.playpageturn();
+                updateinstructionstext();
+            }
+        });
+
+        done.addActionListener(e -> {
+            cardlayout.show(mainPanel, card_title);
+        });
+
+        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        bottom.setOpaque(false);
+        bottom.add(back);
+        bottom.add(next);
+        bottom.add(done);
+
+        outer.add(title, BorderLayout.NORTH);
+        outer.add(center, BorderLayout.CENTER);
+        outer.add(bottom, BorderLayout.SOUTH);
+
+        return outer;
+    }
+
+    // update instructions text per page (small chunks)
+    // description: update the instructions text for the current page
+    // parms: none
+    // returns: none
+    private void updateinstructionstext() {
+        switch (instructionsPage) {
+            case 0:
+                instructionsText.setText("<html>Use <b>WASD</b> or the <b>arrow keys</b> to move your character around the jungle.</html>");
+                break;
+            case 1:
+                instructionsText.setText("<html>Press <b>F</b> to use the radar. It scans for <b>Wolfy</b> and the <b>nearest bomb</b> and shows their distances.</html>");
+                break;
+            case 2:
+                instructionsText.setText("<html>Heat numbers on visited tiles show how close the nearest bomb is. Higher numbers mean the mine is <b>closer</b>.</html>");
+                break;
+            default:
+                instructionsText.setText("<html>Avoid the hidden mines and find Wolfy! Use the menu buttons to start a new game or change difficulty.</html>");
+                break;
+        }
+    }
+
+    // build the setup screen panel with name input and difficulty selection
+    // description: create the setup screen (name, difficulty, character)
+    // parms: none
+    // returns: setup panel
+    private JPanel createsetuppanel() {
+        JPanel outer = new JPanel(new BorderLayout(10, 10));
+        outer.setBackground(new Color(0, 45, 50));
+        outer.setBorder(new EmptyBorder(40, 80, 60, 80));
+
+        JLabel title = new JLabel("Game Setup", JLabel.CENTER);
+        title.setFont(new Font("Serif", Font.BOLD, 36));
+        title.setForeground(new Color(220, 255, 240));
+        title.setBorder(new EmptyBorder(0, 0, 30, 0));
+
+        // name input section
+        JPanel namePanel = new JPanel(new BorderLayout(10, 10));
+        namePanel.setOpaque(false);
+        JLabel nameLabel = new JLabel("Enter your name:");
+        nameLabel.setFont(new Font("SansSerif", Font.PLAIN, 16));
+        nameLabel.setForeground(new Color(210, 240, 235));
+        nameField = new JTextField(20);
+        nameField.setFont(new Font("SansSerif", Font.PLAIN, 16));
+        nameField.setBorder(new EmptyBorder(5, 10, 5, 10));
+        namePanel.add(nameLabel, BorderLayout.WEST);
+        namePanel.add(nameField, BorderLayout.CENTER);
+
+        // difficulty selection section
+        JPanel diffPanel = new JPanel(new BorderLayout(10, 10));
+        diffPanel.setOpaque(false);
+        JLabel diffLabel = new JLabel("Choose difficulty:");
+        diffLabel.setFont(new Font("SansSerif", Font.PLAIN, 16));
+        diffLabel.setForeground(new Color(210, 240, 235));
+        
+        JPanel radioPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
+        radioPanel.setOpaque(false);
+        ButtonGroup diffGroup = new ButtonGroup();
+        
+        easyButton = new JRadioButton("Easy (100 moves)", true);
+        mediumButton = new JRadioButton("Medium (75 moves)", false);
+        hardButton = new JRadioButton("Hard (60 moves)", false);
+        
+        easyButton.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        mediumButton.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        hardButton.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        easyButton.setForeground(new Color(210, 240, 235));
+        mediumButton.setForeground(new Color(210, 240, 235));
+        hardButton.setForeground(new Color(210, 240, 235));
+        easyButton.setOpaque(false);
+        mediumButton.setOpaque(false);
+        hardButton.setOpaque(false);
+        
+        diffGroup.add(easyButton);
+        diffGroup.add(mediumButton);
+        diffGroup.add(hardButton);
+        radioPanel.add(easyButton);
+        radioPanel.add(mediumButton);
+        radioPanel.add(hardButton);
+        
+        diffPanel.add(diffLabel, BorderLayout.WEST);
+        diffPanel.add(radioPanel, BorderLayout.CENTER);
+
+        // character selection section
+        JPanel charPanel = new JPanel(new BorderLayout(10, 10));
+        charPanel.setOpaque(false);
+        JLabel charLabel = new JLabel("Choose character:");
+        charLabel.setFont(new Font("SansSerif", Font.PLAIN, 16));
+        charLabel.setForeground(new Color(210, 240, 235));
+        
+        JPanel charRadioPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
+        charRadioPanel.setOpaque(false);
+        ButtonGroup charGroup = new ButtonGroup();
+        
+        char0Button = new JRadioButton("Doux", true);
+        char1Button = new JRadioButton("Mort", false);
+        char2Button = new JRadioButton("Tard", false);
+        char3Button = new JRadioButton("Vita", false);
+        
+        char0Button.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        char1Button.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        char2Button.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        char3Button.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        char0Button.setForeground(new Color(210, 240, 235));
+        char1Button.setForeground(new Color(210, 240, 235));
+        char2Button.setForeground(new Color(210, 240, 235));
+        char3Button.setForeground(new Color(210, 240, 235));
+        char0Button.setOpaque(false);
+        char1Button.setOpaque(false);
+        char2Button.setOpaque(false);
+        char3Button.setOpaque(false);
+        
+        charGroup.add(char0Button);
+        charGroup.add(char1Button);
+        charGroup.add(char2Button);
+        charGroup.add(char3Button);
+        charRadioPanel.add(char0Button);
+        charRadioPanel.add(char1Button);
+        charRadioPanel.add(char2Button);
+        charRadioPanel.add(char3Button);
+        
+        charPanel.add(charLabel, BorderLayout.WEST);
+        charPanel.add(charRadioPanel, BorderLayout.CENTER);
+
+        // center content
+        JPanel center = new JPanel();
+        center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
+        center.setOpaque(false);
+        center.setBorder(new EmptyBorder(20, 20, 20, 20));
+        center.add(namePanel);
+        center.add(Box.createVerticalStrut(30));
+        center.add(diffPanel);
+        center.add(Box.createVerticalStrut(30));
+        center.add(charPanel);
+
+        // buttons
+        JButton back = makebuttonstyled("Back");
+        JButton start = makebuttonstyled("Start Game");
+        
+        back.addActionListener(e -> {
+            cardlayout.show(mainPanel, card_title);
+        });
+        
+        start.addActionListener(e -> {
+            // get name
+            String enteredName = nameField.getText().trim();
+            if (enteredName.length() == 0) {
+                enteredName = "player";
+            }
+            playername = enteredName;
+            name = playername;
+            
+            // get difficulty
+            if (easyButton.isSelected()) {
+                guidiff = 1;
+            } else if (mediumButton.isSelected()) {
+                guidiff = 2;
+            } else {
+                guidiff = 3;
+            }
+            
+            // get character selection
+            if (char0Button.isSelected()) {
+                selectedCharacter = 0;
+            } else if (char1Button.isSelected()) {
+                selectedCharacter = 1;
+            } else if (char2Button.isSelected()) {
+                selectedCharacter = 2;
+            } else {
+                selectedCharacter = 3;
+            }
+            
+            // start the game
+            setup(guidiff);
+            init();
+            
+            // start game sounds
+            SoundHandling.playstartupsound();
+            SoundHandling.startBackgroundLoop();
+            
+            // initialize animation state
+            lastMove = 's';
+            animFrame = 0;
+            lastMoveTime = 0;
+            
+            done = false;
+            win = false;
+            
+            updateInfo();
+            panel.repaint();
+            
+            // switch to game screen and request focus
+            cardlayout.show(mainPanel, card_game);
+            panel.requestFocusInWindow();
+        });
+
+        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        bottom.setOpaque(false);
+        bottom.add(back);
+        bottom.add(start);
+
+        outer.add(title, BorderLayout.NORTH);
+        outer.add(center, BorderLayout.CENTER);
+        outer.add(bottom, BorderLayout.SOUTH);
+
+        return outer;
+    }
+
     // create the menu bar with Instructions and About
+    // description: create the menu bar
+    // parms: none
+    // returns: menu bar
     private JMenuBar createmenubar() {
         JMenuBar bar = new JMenuBar();
 
@@ -197,76 +506,52 @@ public class Main extends JFrame implements ActionListener {
         return bar;
     }
 
-    // start the game when Play or New Game is chosen from title/menu
+        // start the game when Play or New Game is chosen from title/menu
+    // description: go from title to setup screen
+    // parms: none
+    // returns: none
     private void startgame() {
-        // ask for name using a simple dialog
-        playername = JOptionPane.showInputDialog(this, "Please enter your name: ");
-        if (playername == null) playername = "player";
-        playername = playername.trim();
-        if (playername.length() == 0) playername = "player";
-        name = playername;
-
-        // ask for difficulty using a number: 1 easy, 2 medium, 3 hard
-        guidiff = askDifficulty();
-        setup(guidiff);
-        init();
-
-        // start game sounds (intro + background ambience)
-        SoundHandling.playstartupsound();
-        SoundHandling.startBackgroundLoop();
-
-        SoundHandling.playpageturn();
-        JOptionPane.showMessageDialog(this,
-                "Rules\n\n" +
-                "• The number at the top of each square shows how close the bomb is.\n" +
-                "• Press F to scan how far away Wolfy is.\n" +
-                "• The leaderboard appears after the game ends.",
-                "Rules",
-                JOptionPane.INFORMATION_MESSAGE);
-
-        done = false;
-        win = false;
-
-        updateInfo();
-        panel.repaint();
-        panel.requestFocusInWindow();
-
-        // switch to game screen
-        cardlayout.show(mainPanel, card_game);
+        // stop menu music (if playing) and show setup panel
+        SoundHandling.stopBackgroundLoop(); // stops any current loop (menu or otherwise)
+        
+        // reset setup fields
+        if (nameField != null) {
+            nameField.setText("");
+        }
+        if (easyButton != null) {
+            easyButton.setSelected(true);
+        }
+        
+        // switch to setup screen
+        cardlayout.show(mainPanel, card_setup);
     }
 
-    // show instructions dialog
+        // show instructions using custom paged UI instead of dialog
+    // description: show the instructions screen
+    // parms: none
+    // returns: none
     private void showinstructions() {
-        String msg = "HOW TO PLAY RESCUE WOLFY\n\n" +
-                "Goal: Move through the jungle to find Wolfy while avoiding hidden bombs.\n" +
-                "You can only clearly see a 10x10 area around your current position.\n\n" +
-                "Controls:\n" +
-                "- W / Up Arrow    : move up\n" +
-                "- S / Down Arrow  : move down\n" +
-                "- A / Left Arrow  : move left\n" +
-                "- D / Right Arrow : move right\n" +
-                "- F               : scan distance to Wolfy\n" +
-                "- G               : give up\n\n" +
-                "Difficulty:\n" +
-                "- Easy   : 1 bomb, 100 moves\n" +
-                "- Medium : 2 bombs, 75 moves\n" +
-                "- Hard   : 2 bombs, 60 moves, bombs move more often\n\n" +
-                "Heat numbers on visited tiles show how close the nearest bomb is:\n" +
-                "higher numbers mean closer (hotter).";
-        JOptionPane.showMessageDialog(this, msg, "Instructions", JOptionPane.INFORMATION_MESSAGE);
+        instructionsPage = 0;
+        updateinstructionstext();
+        cardlayout.show(mainPanel, card_instructions);
     }
 
     // show About dialog
+    // parms: none
+    // returns: none
     private void showabout() {
         String msg = "Rescue Wolfy\n" +
-                "Author: [Your Name Here]\n" +
+                "Author: Aiden\n" +
+                "Date: January 1 2026\n" +
                 "Course: ICS3U1\n" +
-                "Description: Jungle-themed grid rescue game with fog-of-war,\n" +
-                "moving bombs, heat hints, and a leaderboard.";
+                "Description: jungle grid rescue game with fog-of-war, mines, and a leaderboard.";
         JOptionPane.showMessageDialog(this, msg, "About", JOptionPane.INFORMATION_MESSAGE);
     }
 
     // simple styled button used for in-game UI
+    // description: create a styled button with an action command
+    // parms: text, command
+    // returns: button
     private JButton makeButton(String text, String command) {
         JButton b = makebuttonstyled(text);
         b.setActionCommand(command);
@@ -274,21 +559,31 @@ public class Main extends JFrame implements ActionListener {
         return b;
     }
 
-    // base style for all buttons (title + game)
-    private JButton makebuttonstyled(String text) {
-        JButton b = new JButton(text);
-        b.setFocusPainted(false);
-        b.setForeground(new Color(230, 250, 240));
-        b.setBackground(new Color(0, 90, 80));
-        b.setOpaque(true);
-        b.setBorder(new CompoundBorder(
-                new LineBorder(new Color(0, 0, 0, 120), 1, true),
-                new EmptyBorder(6, 10, 6, 10)));
-        b.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        return b;
-    }
+        // base style for all buttons (title + game)
+        // description: create a styled button (no command)
+        // parms: text
+        // returns: button
+        private JButton makebuttonstyled(String text) {
+            JButton b = new JButton(text);
+            b.setFocusPainted(false);
+            b.setForeground(new Color(230, 250, 240));
+            b.setBackground(new Color(0, 90, 80));
+            b.setOpaque(true);
+            b.setBorder(new CompoundBorder(
+                    new LineBorder(new Color(0, 0, 0, 120), 1, true),
+                    new EmptyBorder(6, 10, 6, 10)));
+            b.setFont(new Font("SansSerif", Font.PLAIN, 14));
+            b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
+            // play a click sound for all UI buttons (not WASD keys)
+            b.addActionListener(ev -> SoundHandling.playbuttonclicked());
+
+            return b;
+        }
+
+    // description: update the top info label
+    // parms: none
+    // returns: none
     private void updateInfo() {
         String movesText;
         if (moves > -1) movesText = "moves left " + movesleft; 
@@ -296,35 +591,11 @@ public class Main extends JFrame implements ActionListener {
         infoLabel.setText("player " + name + "  difficulty " + diffname +
                 "  steps " + steps + "  " + movesText);
 
-        moveTrackerLabel.setText("<html>steps: " + steps + "<br>" + movesText + "</html>");
     }
     // ask the user for difficulty using a simple number input dialog
-    private int askDifficulty() {
-        int d = 0;
-        while (d < 1 || d > 3) {
-            String input = JOptionPane.showInputDialog(this,
-                    "choose difficulty:\n" +
-                    "1 easy (40 moves limit)\n" +
-                    "2 medium (30 moves limit)\n" +
-                    "3 hard (20 moves limit)");
-            if (input == null) {
-                // deafult is to just use medium
-                d = 2;
-                break;
-            }
-            input = input.trim();
-            if (input.length() > 0) {
-                char ch = input.charAt(0);
-                if (ch == '1') d = 1;
-                else if (ch == '2') d = 2;
-                else if (ch == '3') d = 3;
-                else d = 0; // invalid, ask again
-            } else {
-                d = 0; // empty, ask again
-            }
-        }
-        return d;
-    }
+    // description: start a new game with the same setup values
+    // parms: none
+    // returns: none
     private void startNewGame() {
         name = playername;
         setup(guidiff);
@@ -340,6 +611,9 @@ public class Main extends JFrame implements ActionListener {
         panel.repaint();
         panel.requestFocusInWindow();
     }
+    // description: handle button/menu actions
+    // parms: e
+    // returns: none
     public void actionPerformed(ActionEvent e) {
         String cmd = e.getActionCommand();
 
@@ -352,12 +626,18 @@ public class Main extends JFrame implements ActionListener {
         } else if (cmd.equals("right")) {
             doMove('d');
         } else if (cmd.equals("scan")) {
-            int dr = row - wolfrow;
-            if (dr < 0) dr = -dr;
-            int dc = col - wolfcol;
-            if (dc < 0) dc = -dc;
-            int distance = dr + dc;
-            statusLabel.setText("scanner: wolfy is " + distance + " squares away");
+            SoundHandling.playsonarping();
+            int wolfdist = Math.abs(row - wolfrow) + Math.abs(col - wolfcol);
+
+            int bombdist = Integer.MAX_VALUE;
+            int d1 = Math.abs(row - bombRow) + Math.abs(col - bombCol);
+            bombdist = Math.min(bombdist, d1);
+            if (bombRow2 >= 0 && bombCol2 >= 0) {
+                int d2 = Math.abs(row - bombRow2) + Math.abs(col - bombCol2);
+                bombdist = Math.min(bombdist, d2);
+            }
+
+            statusLabel.setText("scanner: wolfy " + wolfdist + " away, nearest bomb " + bombdist + " away");
         } else if (cmd.equals("giveup")) {
             done = true;
             win = false;
@@ -365,39 +645,53 @@ public class Main extends JFrame implements ActionListener {
         } else if (cmd.equals("newgame")) {
             startNewGame();
         } else if (cmd.equals("menu")) {
-            // stop sounds and go back to title screen
+            // stop in-game ambience and go back to title screen with menu music
             SoundHandling.stopBackgroundLoop();
+            SoundHandling.startmenumusic();
             done = true;
             cardlayout.show(mainPanel, card_title);
         } else if (cmd.equals("quitapp")) {
             System.exit(0);
+        } else if (cmd.equals("togglelog")) {
+            boolean visible = !moveLogArea.isVisible();
+            moveLogArea.setVisible(visible);
+            JScrollPane scrollPane = (JScrollPane) moveLogArea.getParent().getParent();
+            scrollPane.setVisible(visible);
+            toggleLogButton.setText(visible ? "Hide Move Log" : "Show Move Log");
+            sidePanel.revalidate();
+            sidePanel.repaint();
         }
 
         updateInfo();
         panel.repaint();
         panel.requestFocusInWindow();
     }
+    // description: set world size and move limit based on difficulty
+    // parms: d (1 easy, 2 medium, 3 hard)
+    // returns: none
     private void setup(int d) {
-        // use a 72x72 world so the diagonal distance is about 100 tiles
-        // (from (0,0) to (71,71) is ~100.4 tiles)
+        // 50x50 world for tighter gameplay
         if (d == 1) {
-            rows = 72;
-            cols = 72;
+            rows = 50;
+            cols = 50;
             moves = 100;         // easy: 100 moves
             diffname = "easy";
         } else if (d == 2) {
-            rows = 72;
-            cols = 72;
+            rows = 50;
+            cols = 50;
             moves = 75;          // medium: 75 moves
             diffname = "medium";
         } else {
-            rows = 72;
-            cols = 72;
+            rows = 50;
+            cols = 50;
             moves = 60;          // hard: 60 moves
             diffname = "hard";
         }
     }
     // create game screen panel (layout around RescuePanel)
+    // description: create the main game ui panel
+    // parms: none
+    // returns: game panel
     private JPanel creategamepanel() {
         // set up labels
         infoLabel = new JLabel("", JLabel.CENTER);
@@ -414,8 +708,6 @@ public class Main extends JFrame implements ActionListener {
         statusLabel.setForeground(new Color(220, 240, 255));
         statusLabel.setBorder(new EmptyBorder(6, 6, 6, 6));
 
-        moveTrackerLabel = new JLabel("", JLabel.CENTER);
-        moveTrackerLabel.setFont(new Font("SansSerif", Font.PLAIN, 14));
 
         // move log area on the side
         moveLogArea = new JTextArea();
@@ -446,14 +738,20 @@ public class Main extends JFrame implements ActionListener {
                     panel.repaint();
 
                 } else if (ch == 'f') {
-                    // scan distance to wolfy
-                    int dr = row - wolfrow;
-                    if (dr < 0) dr = -dr;
-                    int dc = col - wolfcol;
-                    if (dc < 0) dc = -dc;
-                    int distance = dr + dc;
-                    statusLabel.setText("scanner: wolfy is " + distance + " squares away");
-                    logMove("used scan (distance " + distance + ")");
+                    // scan distance to wolfy and bomb
+                    SoundHandling.playsonarping();
+                    int wolfdist = Math.abs(row - wolfrow) + Math.abs(col - wolfcol);
+
+                    int bombdist = Integer.MAX_VALUE;
+                    int d1 = Math.abs(row - bombRow) + Math.abs(col - bombCol);
+                    bombdist = Math.min(bombdist, d1);
+                    if (bombRow2 >= 0 && bombCol2 >= 0) {
+                        int d2 = Math.abs(row - bombRow2) + Math.abs(col - bombCol2);
+                        bombdist = Math.min(bombdist, d2);
+                    }
+
+                    statusLabel.setText("scanner: wolfy " + wolfdist + " away, nearest bomb " + bombdist + " away");
+                    logMove("used scan (wolf " + wolfdist + ", bomb " + bombdist + ")");
                     updateInfo();
                     panel.repaint();
 
@@ -509,17 +807,22 @@ public class Main extends JFrame implements ActionListener {
         buttons.add(centerbuttons, BorderLayout.CENTER);
         buttons.add(gamectrl, BorderLayout.EAST);
 
-        // side panel on the right: short tracker + detailed move log
-        JPanel sidePanel = new JPanel();
-        sidePanel.setLayout(new BorderLayout(5, 5));
+        // side panel on the right: toggle button for move log
+        sidePanel = new JPanel(new BorderLayout(5, 5));
         sidePanel.setBorder(new EmptyBorder(6, 6, 6, 6));
         sidePanel.setBackground(new Color(0, 55, 70));
-        moveTrackerLabel.setBorder(new EmptyBorder(4, 4, 4, 4));
-        sidePanel.add(moveTrackerLabel, BorderLayout.NORTH);
-
+        
+        // toggle button to show/hide move log
+        toggleLogButton = makeButton("Show Move Log", "togglelog");
+        toggleLogButton.setPreferredSize(new Dimension(150, 30));
+        sidePanel.add(toggleLogButton, BorderLayout.NORTH);
+        
+        // move log area (hidden by default)
         JScrollPane movescroll = new JScrollPane(moveLogArea);
         movescroll.setPreferredSize(new Dimension(230, 0));
         movescroll.setBorder(new TitledBorder("Move Log"));
+        movescroll.setVisible(false);
+        moveLogArea.setVisible(false);
         sidePanel.add(movescroll, BorderLayout.CENTER);
 
         // main layout
@@ -541,19 +844,17 @@ public class Main extends JFrame implements ActionListener {
         return game;
     }
 
+    // description: initialize a new world and place player/wolfy/bombs
+    // parms: none
+    // returns: none
     private void init() {
         visited = new boolean[rows][cols];
         row = 0;
         col = 0;
         visited[row][col] = true;
 
-        // generate terrain and bushes
+        // generate terrain
         tileType = WorldGeneration.generatetiles(rows, cols);
-        bushIndex = WorldGeneration.generatebushes(tileType);
-
-        // starting tile is always path (clear) with no bush
-        tileType[row][col] = WorldGeneration.TILE_PATH;
-        bushIndex[row][col] = -1;
 
         // randomly place wolfy somewhere not equal to player start
         wolfrow = (int)(Math.random() * rows);
@@ -589,6 +890,9 @@ public class Main extends JFrame implements ActionListener {
         steps = 0;
         movesleft = moves;
     }
+    // description: check if a movement stays inside the world
+    // parms: m (w/a/s/d)
+    // returns: true if move is valid
     private boolean canmove(char m) {
         int nr = row;
         int nc = col;
@@ -602,6 +906,9 @@ public class Main extends JFrame implements ActionListener {
         return true;
     }
 
+    // description: apply a movement to the player position
+    // parms: m (w/a/s/d)
+    // returns: none
     private void domove(char m) {
         if (m == 'w') row--;
         else if (m == 's') row++;
@@ -609,21 +916,25 @@ public class Main extends JFrame implements ActionListener {
         else if (m == 'd') col++;
     }
 
+    // description: run a full move step (rate limit, move, sounds, win/lose)
+    // parms: m (w/a/s/d)
+    // returns: none
     private void doMove(char m) {
-        if (done) return;
+        if (done || dying) return;
+        // rate limiting: max ~5 moves per second (200ms between moves)
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastMoveTime < 200) return;
+        lastMoveTime = currentTime;
+        
         if (canmove(m)) {
             // actually move the player
             domove(m);
             steps++;
             visited[row][col] = true;
-
-            // mark the current tile as player path and clear any bush here
-            if (tileType != null) {
-                tileType[row][col] = WorldGeneration.TILE_PATH;
-            }
-            if (bushIndex != null) {
-                bushIndex[row][col] = -1;
-            }
+            
+            // track direction and animation frame
+            lastMove = m;
+            animFrame = (animFrame + 1) % 10; // cycle through animation frames
 
             logMove(describeMove(m));
 
@@ -678,20 +989,38 @@ public class Main extends JFrame implements ActionListener {
                 SoundHandling.playboom();
                 SoundHandling.stopBackgroundLoop();
 
-                JOptionPane.showMessageDialog(this,
-                        "BOOM! You hit a mine!",
-                        "Explosion!",
-                        JOptionPane.ERROR_MESSAGE);
-                
-                // leaderboard AFTER explosion (no saving on loss)
-                SoundHandling.playpageturn();
-                JOptionPane.showMessageDialog(this,
-                        getLeaderboardText(),
-                        "Leaderboard",
-                        JOptionPane.INFORMATION_MESSAGE);
-                
+                // play explosion cutscene first, then show dialogs
                 done = true;
                 win = false;
+                dying = true;
+                deathRow = row;
+                deathCol = col;
+                deathFrame = 0;
+
+                if (deathTimer != null) deathTimer.stop();
+                deathTimer = new javax.swing.Timer(100, ev -> {
+                    deathFrame++;
+                    panel.repaint();
+                    if (deathFrame >= 6) {
+                        ((javax.swing.Timer) ev.getSource()).stop();
+                        dying = false;
+                        panel.repaint();
+
+                        JOptionPane.showMessageDialog(this,
+                                "game over! you hit a mine",
+                                "Game Over",
+                                JOptionPane.ERROR_MESSAGE);
+
+                        SoundHandling.playpageturn();
+                        JOptionPane.showMessageDialog(this,
+                                getLeaderboardText(),
+                                "Leaderboard",
+                                JOptionPane.INFORMATION_MESSAGE);
+                    }
+                });
+                deathTimer.start();
+                panel.repaint();
+                return;
             } else if (row == wolfrow && col == wolfcol) {
                 statusLabel.setText("you rescued wolfy!");
                 logMove("rescued wolfy");
@@ -727,6 +1056,9 @@ public class Main extends JFrame implements ActionListener {
         }
     }
     // move the bomb one step closer to the player plus-type moves only
+    // description: move bombs one step closer to the player
+    // parms: none
+    // returns: none
     private void moveBombTowardPlayer() {
         if (done) return;
 
@@ -744,6 +1076,9 @@ public class Main extends JFrame implements ActionListener {
             else if (bombCol2 > col) bombCol2--;
         }
     }
+    // description: turn a movement char into a short message
+    // parms: m (w/a/s/d)
+    // returns: text description
     private String describeMove(char m) {
         if (m == 'w') return "moved up";
         else if (m == 's') return "moved down";
@@ -751,11 +1086,17 @@ public class Main extends JFrame implements ActionListener {
         else if (m == 'd') return "moved right";
         return "moved";
     }
+    // description: append a line to the move log
+    // parms: action
+    // returns: none
     private void logMove(String action) {
         moveLogArea.append(name + " " + action + " (" + steps + ")\n");
         moveLogArea.setCaretPosition(moveLogArea.getDocument().getLength());
     }
     // leaderboard save - only keeps top 5 scores
+    // description: save a win score to leaderboard
+    // parms: none
+    // returns: none
     private void saveToLeaderboard() {
         if (!win) return;
         
@@ -793,6 +1134,9 @@ public class Main extends JFrame implements ActionListener {
         }
     }
     // leaderboard read + sort
+    // description: read leaderboard and format top scores
+    // parms: none
+    // returns: leaderboard text
     private String getLeaderboardText() {
         File file = new File(LEADERBOARD_FILE);
         if (!file.exists()) return "No scores yet.";
@@ -822,6 +1166,9 @@ public class Main extends JFrame implements ActionListener {
     }
     //return a simple "heat" level for a cell based on distance from the nearest bomb
     //higher number = closer (hotter)
+    // description: compute heat hint for a cell based on nearest bomb distance
+    // parms: r, c
+    // returns: heat level
     private int getHeatLevelForCell(int r, int c) {
         // distance to first bomb
         int dr1 = r - bombRow;
@@ -851,16 +1198,21 @@ public class Main extends JFrame implements ActionListener {
     // panel that draws the grid
     class RescuePanel extends JPanel {
 
-        Image playerPic;  // util/player.png
         Image wolfyPic;   // util/wolfy.png
         Image bombPic;    // util/bomb.png
 
+        // description: create drawing panel and load simple images
+        // parms: none
+        // returns: none
         public RescuePanel() {
-            playerPic = new ImageIcon("util/player.png").getImage();
+            // wolfy and bomb still use standalone images for now
             wolfyPic  = new ImageIcon("util/wolfy.png").getImage();
             bombPic   = new ImageIcon("util/bomb.png").getImage();
         }
 
+        // description: draw the visible 10x10 view
+        // parms: g
+        // returns: none
         public void paintComponent(Graphics g) {
             super.paintComponent(g);
             if (rows <= 0 || cols <= 0) return;
@@ -882,36 +1234,61 @@ public class Main extends JFrame implements ActionListener {
                     int x = offsetX + vc * cellSize;
                     int y = offsetY + vr * cellSize;
 
-                    // outside the world: draw dark fog tile
+                    // outside the world: draw sky border so player can't see beyond the map
                     if (wr < 0 || wr >= rows || wc < 0 || wc >= cols) {
-                        g.setColor(Color.DARK_GRAY);
-                        g.fillRect(x, y, cellSize, cellSize);
-                        g.setColor(Color.BLACK);
-                        g.drawRect(x, y, cellSize, cellSize);
+                        Image border = Animations.getskyborder();
+                        if (border != null) {
+                            g.drawImage(border, x, y, cellSize, cellSize, this);
+                        } else {
+                            g.setColor(Color.DARK_GRAY);
+                            g.fillRect(x, y, cellSize, cellSize);
+                        }
                         continue;
                     }
 
-                    // base floor tile based on generated terrain
+                    // base floor tile based on generated terrain using tile sprites
                     int baseType = (tileType != null ? tileType[wr][wc] : WorldGeneration.TILE_GRASS);
+                    Image tileImg = null;
                     if (baseType == WorldGeneration.TILE_GRASS) {
-                        g.setColor(new Color(0, 100, 0)); // grass
+                        tileImg = Animations.gettile_grass(wr, wc);
                     } else if (baseType == WorldGeneration.TILE_SAND) {
-                        g.setColor(new Color(170, 150, 80)); // sand
-                    } else { // path
-                        g.setColor(new Color(120, 80, 40)); // path
-                    }
-                    g.fillRect(x, y, cellSize, cellSize);
-
-                    // simple bush overlay: only on grass tiles, no collision
-                    if (bushIndex != null && baseType == WorldGeneration.TILE_GRASS && bushIndex[wr][wc] >= 0) {
-                        g.setColor(new Color(0, 140, 0));
-                        int inset = cellSize / 6;
-                        g.fillOval(x + inset, y + inset, cellSize - 2 * inset, cellSize - 2 * inset);
+                        tileImg = Animations.gettile_sand(wr, wc);
+                    } else {
+                        tileImg = Animations.gettile_path();
                     }
 
-                    // draw player sprite
-                    if (wr == row && wc == col && playerPic != null) {
-                        g.drawImage(playerPic, x, y, cellSize, cellSize, this);
+                    if (tileImg != null) {
+                        g.drawImage(tileImg, x, y, cellSize, cellSize, this);
+                    } else {
+                        // fallback colors if sprites are missing
+                        if (baseType == WorldGeneration.TILE_GRASS) {
+                            g.setColor(new Color(0, 100, 0));
+                        } else if (baseType == WorldGeneration.TILE_SAND) {
+                            g.setColor(new Color(170, 150, 80));
+                        } else {
+                            g.setColor(new Color(120, 80, 40));
+                        }
+                        g.fillRect(x, y, cellSize, cellSize);
+                    }
+
+                    // draw player sprite from character sheet
+                    if (wr == row && wc == col) {
+                        Image playerFrame = null;
+                        if (dying && wr == deathRow && wc == deathCol) {
+                            playerFrame = Animations.getexplosion(Math.max(0, Math.min(deathFrame, 6)));
+                        } else if (done && !win) {
+                            // after death cutscene, player stays hidden
+                            playerFrame = null;
+                        } else {
+                            if (lastMove == 'w' || lastMove == 'a' || lastMove == 's' || lastMove == 'd') {
+                                playerFrame = Animations.getcharacter_walk(selectedCharacter, animFrame);
+                            } else {
+                                playerFrame = Animations.getcharacter_idle(selectedCharacter, animFrame);
+                            }
+                        }
+                        if (playerFrame != null) {
+                            g.drawImage(playerFrame, x, y, cellSize, cellSize, this);
+                        }
                     }
 
                     // show bombs only when game is over and player lost
@@ -949,6 +1326,9 @@ public class Main extends JFrame implements ActionListener {
         }
     }
 
+    // description: program entry point
+    // parms: args
+    // returns: none
     public static void main(String[] args) {
         new Main();
     }

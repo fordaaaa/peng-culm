@@ -1,2 +1,3 @@
 aiden,easy,7
+player,hard,50
 a,medium,68
