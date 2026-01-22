@@ -24,6 +24,10 @@ public class Main extends JFrame implements ActionListener {
     private int wolfrow;            // wolfy row position
     private int wolfcol;            // wolfy column position
 
+    // world tiles and bushes
+    private int[][] tileType;       // 0 = grass, 1 = sand, 2 = path
+    private int[][] bushIndex;      // -1 = no bush, 0..9 = bush sprite index
+
     //player state
     private String name;            // player name
     private int steps;              // steps taken
@@ -294,7 +298,6 @@ public class Main extends JFrame implements ActionListener {
 
         moveTrackerLabel.setText("<html>steps: " + steps + "<br>" + movesText + "</html>");
     }
-    //jaden
     // ask the user for difficulty using a simple number input dialog
     private int askDifficulty() {
         int d = 0;
@@ -322,7 +325,6 @@ public class Main extends JFrame implements ActionListener {
         }
         return d;
     }
-    //jaden
     private void startNewGame() {
         name = playername;
         setup(guidiff);
@@ -338,7 +340,6 @@ public class Main extends JFrame implements ActionListener {
         panel.repaint();
         panel.requestFocusInWindow();
     }
-    //ivan
     public void actionPerformed(ActionEvent e) {
         String cmd = e.getActionCommand();
 
@@ -376,7 +377,6 @@ public class Main extends JFrame implements ActionListener {
         panel.repaint();
         panel.requestFocusInWindow();
     }
-    //ivan
     private void setup(int d) {
         // use a 72x72 world so the diagonal distance is about 100 tiles
         // (from (0,0) to (71,71) is ~100.4 tiles)
@@ -541,12 +541,19 @@ public class Main extends JFrame implements ActionListener {
         return game;
     }
 
-    //ivan
     private void init() {
         visited = new boolean[rows][cols];
         row = 0;
         col = 0;
         visited[row][col] = true;
+
+        // generate terrain and bushes
+        tileType = WorldGeneration.generatetiles(rows, cols);
+        bushIndex = WorldGeneration.generatebushes(tileType);
+
+        // starting tile is always path (clear) with no bush
+        tileType[row][col] = WorldGeneration.TILE_PATH;
+        bushIndex[row][col] = -1;
 
         // randomly place wolfy somewhere not equal to player start
         wolfrow = (int)(Math.random() * rows);
@@ -582,7 +589,6 @@ public class Main extends JFrame implements ActionListener {
         steps = 0;
         movesleft = moves;
     }
-    //ivan
     private boolean canmove(char m) {
         int nr = row;
         int nc = col;
@@ -610,6 +616,15 @@ public class Main extends JFrame implements ActionListener {
             domove(m);
             steps++;
             visited[row][col] = true;
+
+            // mark the current tile as player path and clear any bush here
+            if (tileType != null) {
+                tileType[row][col] = WorldGeneration.TILE_PATH;
+            }
+            if (bushIndex != null) {
+                bushIndex[row][col] = -1;
+            }
+
             logMove(describeMove(m));
 
             // play movement sound each time the player moves
@@ -711,7 +726,6 @@ public class Main extends JFrame implements ActionListener {
             logMove("invalid move");
         }
     }
-    //jaden
     // move the bomb one step closer to the player plus-type moves only
     private void moveBombTowardPlayer() {
         if (done) return;
@@ -730,7 +744,6 @@ public class Main extends JFrame implements ActionListener {
             else if (bombCol2 > col) bombCol2--;
         }
     }
-    //jaden
     private String describeMove(char m) {
         if (m == 'w') return "moved up";
         else if (m == 's') return "moved down";
@@ -738,12 +751,10 @@ public class Main extends JFrame implements ActionListener {
         else if (m == 'd') return "moved right";
         return "moved";
     }
-    //jaden
     private void logMove(String action) {
         moveLogArea.append(name + " " + action + " (" + steps + ")\n");
         moveLogArea.setCaretPosition(moveLogArea.getDocument().getLength());
     }
-    //ivan
     // leaderboard save - only keeps top 5 scores
     private void saveToLeaderboard() {
         if (!win) return;
@@ -781,7 +792,6 @@ public class Main extends JFrame implements ActionListener {
         } catch (IOException e) {
         }
     }
-    //ivan
     // leaderboard read + sort
     private String getLeaderboardText() {
         File file = new File(LEADERBOARD_FILE);
@@ -810,7 +820,6 @@ public class Main extends JFrame implements ActionListener {
         }
         return sb.toString();
     }
-    //ivan
     //return a simple "heat" level for a cell based on distance from the nearest bomb
     //higher number = closer (hotter)
     private int getHeatLevelForCell(int r, int c) {
@@ -839,20 +848,17 @@ public class Main extends JFrame implements ActionListener {
         else if (dist <= 13) return 2;
         else return 1;
     }
-    //ivan
     // panel that draws the grid
     class RescuePanel extends JPanel {
 
         Image playerPic;  // util/player.png
         Image wolfyPic;   // util/wolfy.png
         Image bombPic;    // util/bomb.png
-        Image floorPic;   // util/grass.png
 
         public RescuePanel() {
             playerPic = new ImageIcon("util/player.png").getImage();
             wolfyPic  = new ImageIcon("util/wolfy.png").getImage();
             bombPic   = new ImageIcon("util/bomb.png").getImage();
-            floorPic  = new ImageIcon("util/grass.png").getImage();
         }
 
         public void paintComponent(Graphics g) {
@@ -885,16 +891,23 @@ public class Main extends JFrame implements ActionListener {
                         continue;
                     }
 
-                    // base floor tile
-                    if (floorPic != null) {
-                        g.drawImage(floorPic, x, y, cellSize, cellSize, this);
-                    } else {
-                        g.setColor(new Color(0, 100, 0));
-                        g.fillRect(x, y, cellSize, cellSize);
+                    // base floor tile based on generated terrain
+                    int baseType = (tileType != null ? tileType[wr][wc] : WorldGeneration.TILE_GRASS);
+                    if (baseType == WorldGeneration.TILE_GRASS) {
+                        g.setColor(new Color(0, 100, 0)); // grass
+                    } else if (baseType == WorldGeneration.TILE_SAND) {
+                        g.setColor(new Color(170, 150, 80)); // sand
+                    } else { // path
+                        g.setColor(new Color(120, 80, 40)); // path
                     }
+                    g.fillRect(x, y, cellSize, cellSize);
 
-                    // TODO: later add different grass / tree tiles or simple animations here
-                    // based on wr, wc or on the current time/step to animate the player sprite.
+                    // simple bush overlay: only on grass tiles, no collision
+                    if (bushIndex != null && baseType == WorldGeneration.TILE_GRASS && bushIndex[wr][wc] >= 0) {
+                        g.setColor(new Color(0, 140, 0));
+                        int inset = cellSize / 6;
+                        g.fillOval(x + inset, y + inset, cellSize - 2 * inset, cellSize - 2 * inset);
+                    }
 
                     // draw player sprite
                     if (wr == row && wc == col && playerPic != null) {
