@@ -1329,13 +1329,9 @@ public class Main extends JFrame implements ActionListener {
         }
     }
 
-    // description: program entry point
-    // parms: args
-    // returns: none
-    public static void main(String[] args) {
-        try {
-            Animations.init();
-        } catch (Exception e) {}
+// main method
+    public static void main(String[] args) throws Exception {
+        Animations.init();
         new Main();
     }
 
