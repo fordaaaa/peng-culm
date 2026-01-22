@@ -68,6 +68,11 @@ public class Main extends JFrame implements ActionListener {
         setup(guiDifficulty);
         init();
 
+        // start game sounds (intro + background ambience)
+        SoundHandling.playGameStart();
+        SoundHandling.startBackgroundLoop();
+
+        SoundHandling.playPageturn();
         JOptionPane.showMessageDialog(this,
                 "Rules\n\n" +
                 "• The number at the top of each square shows how close the bomb is.\n" +
@@ -237,6 +242,10 @@ public class Main extends JFrame implements ActionListener {
         done = false;
         win = false;
         statusLabel.setText("new game started");
+
+        // restart intro sound and background ambience for the new game
+        SoundHandling.playGameStart();
+        SoundHandling.startBackgroundLoop();
         updateInfo();
         panel.repaint();
         panel.requestFocusInWindow();
@@ -346,22 +355,27 @@ public class Main extends JFrame implements ActionListener {
             visited[row][col] = true;
             logMove(describeMove(m));
 
-            if (moves > -1) movesleft--;
-
-            double chance = Math.random(); // 50% chance to move bomb
+            // play movement sound each ti            double chance = Math.random(); // 50% chance to move bomb
             if (chance < 0.50) {
                 moveBombTowardPlayer();
             }
 
-            if (row == bombRow && col == bombCol) {
+            // heartbeat / breathing based on how close the bomb is
+            int dr = row - bombRo            if (row == bombRow && col == bombCol) {
                 statusLabel.setText("boom! " + name + " stepped on a mine");
                 logMove("hit a mine");
+
+                // explosion sound and stop ambience
+                SoundHandling.playExplosion();
+                SoundHandling.stopBackgroundLoop();
+
                 JOptionPane.showMessageDialog(this,
                         "BOOM! You hit a mine!",
                         "Explosion!",
                         JOptionPane.ERROR_MESSAGE);
                 
                 // leaderboard AFTER explosion (no saving on loss)
+                SoundHandling.playPageturn();
                 JOptionPane.showMessageDialog(this,
                         getLeaderboardText(),
                         "Leaderboard",
@@ -372,9 +386,16 @@ public class Main extends JFrame implements ActionListener {
             } else if (row == wolfrow && col == wolfcol) {
                 statusLabel.setText("you rescued wolfy!");
                 logMove("rescued wolfy");
+
+                // victory sound and stop ambience
+                SoundHandling.playVictory();
+                SoundHandling.stopBackgroundLoop();
+
                 done = true;
                 win = true;
                 saveToLeaderboard();
+
+                SoundHandling.playPageturn();
                 JOptionPane.showMessageDialog(this,
                         getLeaderboardText(),
                         "Leaderboard",
@@ -382,6 +403,10 @@ public class Main extends JFrame implements ActionListener {
             } else if (moves > -1 && movesleft < 0) {
                 statusLabel.setText("you ran out of moves");
                 logMove("ran out of moves");
+
+                // stop ambience when the player runs out of moves
+                SoundHandling.stopBackgroundLoop();
+
                 done = true;
                 win = false;
             } else {
