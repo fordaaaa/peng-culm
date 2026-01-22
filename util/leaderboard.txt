@@ -1,4 +1,0 @@
-aiden,easy,7
-Aiden,medium,43
-player,hard,50
-a,medium,68
