@@ -32,6 +32,10 @@ public class Main extends JFrame implements ActionListener {
     private int bombRow;
     private int bombCol;
 
+    // second bomb state (used for medium and hard)
+    private int bombRow2;
+    private int bombCol2;
+
     // leaderboard
     private static final String LEADERBOARD_FILE = "util/leaderboard.txt";
 
@@ -287,20 +291,22 @@ public class Main extends JFrame implements ActionListener {
     }
     //ivan
     private void setup(int d) {
+        // use a 72x72 world so the diagonal distance is about 100 tiles
+        // (from (0,0) to (71,71) is ~100.4 tiles)
         if (d == 1) {
-            rows = 100;
-            cols = 100;
-            moves = 40;          // easy: 40 moves
+            rows = 72;
+            cols = 72;
+            moves = 100;         // easy: 100 moves
             diffname = "easy";
         } else if (d == 2) {
-            rows = 100;
-            cols = 100;
-            moves = 30;          // medium: 30 moves
+            rows = 72;
+            cols = 72;
+            moves = 75;          // medium: 75 moves
             diffname = "medium";
         } else {
-            rows = 100;
-            cols = 100;
-            moves = 20;          // hard: 20 moves
+            rows = 72;
+            cols = 72;
+            moves = 60;          // hard: 60 moves
             diffname = "hard";
         }
     }
@@ -319,12 +325,27 @@ public class Main extends JFrame implements ActionListener {
             wolfcol = (int)(Math.random() * cols);
         }
 
-        // single bomb setup 
+        // first bomb setup 
         bombRow = (int)(Math.random() * rows);
         bombCol = (int)(Math.random() * cols);
         while ((bombRow == row && bombCol == col) || (bombRow == wolfrow && bombCol == wolfcol)) { // check to make sure that bomb isnt on player/wolfy
             bombRow = (int)(Math.random() * rows);
             bombCol = (int)(Math.random() * cols);
+        }
+
+        // second bomb for medium and hard difficulties
+        if ("medium".equals(diffname) || "hard".equals(diffname)) {
+            bombRow2 = (int)(Math.random() * rows);
+            bombCol2 = (int)(Math.random() * cols);
+            while ((bombRow2 == row && bombCol2 == col) ||
+                   (bombRow2 == wolfrow && bombCol2 == wolfcol) ||
+                   (bombRow2 == bombRow && bombCol2 == bombCol)) {
+                bombRow2 = (int)(Math.random() * rows);
+                bombCol2 = (int)(Math.random() * cols);
+            }
+        } else {
+            bombRow2 = -1;
+            bombCol2 = -1;
         }
 
         steps = 0;
@@ -366,18 +387,34 @@ public class Main extends JFrame implements ActionListener {
             // decrease remaining moves (if limited)
             if (moves > -1) movesleft--;
 
-            // 50% chance to move the bomb closer to the player
+            // chance to move the bomb closer to the player
             double chance = Math.random();
-            if (chance < 0.50) {
+            double threshold;
+            if ("hard".equals(diffname)) {
+                threshold = 0.75;     // 75% on hard
+            } else {
+                threshold = 0.50;     // 50% on easy/medium
+            }
+            if (chance < threshold) {
                 moveBombTowardPlayer();
             }
 
-            // heartbeat / breathing based on how close the bomb is
-            int dr = row - bombRow;
-            if (dr < 0) dr = -dr;
-            int dc = col - bombCol;
-            if (dc < 0) dc = -dc;
-            int dist = dr + dc;
+            // heartbeat / breathing based on how close the nearest bomb is
+            int dr1 = row - bombRow;
+            if (dr1 < 0) dr1 = -dr1;
+            int dc1 = col - bombCol;
+            if (dc1 < 0) dc1 = -dc1;
+            int dist = dr1 + dc1; // distance to first bomb
+
+            if (bombRow2 >= 0 && bombCol2 >= 0) {
+                int dr2 = row - bombRow2;
+                if (dr2 < 0) dr2 = -dr2;
+                int dc2 = col - bombCol2;
+                if (dc2 < 0) dc2 = -dc2;
+                int dist2 = dr2 + dc2;
+                if (dist2 < dist) dist = dist2; // use closest bomb
+            }
+
             if (dist <= 4) {
                 SoundHandling.playheartbeat2();
                 SoundHandling.playbreathing();
@@ -386,7 +423,8 @@ public class Main extends JFrame implements ActionListener {
             }
 
             // check for hitting bomb, rescuing wolfy, or running out of moves
-            if (row == bombRow && col == bombCol) {
+            if ((row == bombRow && col == bombCol) ||
+                (bombRow2 >= 0 && row == bombRow2 && col == bombCol2)) {
                 statusLabel.setText("boom! " + name + " stepped on a mine");
                 logMove("hit a mine");
 
@@ -446,10 +484,20 @@ public class Main extends JFrame implements ActionListener {
     // move the bomb one step closer to the player plus-type moves only
     private void moveBombTowardPlayer() {
         if (done) return;
+
+        // move first bomb
         if (bombRow < row) bombRow++;
         else if (bombRow > row) bombRow--;
         else if (bombCol < col) bombCol++;
         else if (bombCol > col) bombCol--;
+
+        // move second bomb if it exists (medium / hard)
+        if (bombRow2 >= 0 && bombCol2 >= 0) {
+            if (bombRow2 < row) bombRow2++;
+            else if (bombRow2 > row) bombRow2--;
+            else if (bombCol2 < col) bombCol2++;
+            else if (bombCol2 > col) bombCol2--;
+        }
     }
     //jaden
     private String describeMove(char m) {
@@ -532,14 +580,25 @@ public class Main extends JFrame implements ActionListener {
         return sb.toString();
     }
     //ivan
-    //return a simple "heat" level for a cell based on distance from the bomb
+    //return a simple "heat" level for a cell based on distance from the nearest bomb
     //higher number = closer (hotter)
     private int getHeatLevelForCell(int r, int c) {
-        int dr = r - bombRow;
-        if (dr < 0) dr = -dr;
-        int dc = c - bombCol;
-        if (dc < 0) dc = -dc;
-        int dist = dr + dc; // manhattan distance to bomb
+        // distance to first bomb
+        int dr1 = r - bombRow;
+        if (dr1 < 0) dr1 = -dr1;
+        int dc1 = c - bombCol;
+        if (dc1 < 0) dc1 = -dc1;
+        int dist = dr1 + dc1;
+
+        // if second bomb exists, use the closer one
+        if (bombRow2 >= 0 && bombCol2 >= 0) {
+            int dr2 = r - bombRow2;
+            if (dr2 < 0) dr2 = -dr2;
+            int dc2 = c - bombCol2;
+            if (dc2 < 0) dc2 = -dc2;
+            int dist2 = dr2 + dc2;
+            if (dist2 < dist) dist = dist2;
+        }
 
         if (dist == 0) return 0;
         else if (dist <= 2) return 6;
@@ -611,9 +670,13 @@ public class Main extends JFrame implements ActionListener {
                         g.drawImage(playerPic, x, y, cellSize, cellSize, this);
                     }
 
-                    // show bomb only when game is over and player lost
-                    if (done && !win && wr == bombRow && wc == bombCol && bombPic != null) {
-                        g.drawImage(bombPic, x, y, cellSize, cellSize, this);
+                    // show bombs only when game is over and player lost
+                    if (done && !win && bombPic != null) {
+                        if (wr == bombRow && wc == bombCol) {
+                            g.drawImage(bombPic, x, y, cellSize, cellSize, this);
+                        } else if (bombRow2 >= 0 && wr == bombRow2 && wc == bombCol2) {
+                            g.drawImage(bombPic, x, y, cellSize, cellSize, this);
+                        }
                     }
 
                     // heat numbers on visited tiles (not including bomb tile)
