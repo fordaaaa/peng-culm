@@ -3,6 +3,7 @@ import java.awt.event.*;
 import java.io.*;
 import java.util.*;          // leaderboard file I/O
 import javax.swing.*;        // sorting leaderboard
+import javax.swing.border.*;
 
 public class Main extends JFrame implements ActionListener {
 
@@ -41,6 +42,9 @@ public class Main extends JFrame implements ActionListener {
 
 
     // GUI components
+    private CardLayout cardlayout;  // switches between title screen and game screen
+    private JPanel mainPanel;       // root panel with CardLayout
+
     private RescuePanel panel;      // draws the grid
     private JLabel infoLabel;       // shows name, difficulty, steps, moves
     private JLabel statusLabel;     // shows messages (bomb, win, etc.)
@@ -58,22 +62,149 @@ public class Main extends JFrame implements ActionListener {
     private boolean done;           // if the game is finished in GUI
     private boolean win;            // win/lose for this GUI round
 
-    private String playerName;      // stored name for GUI runs
-    private int guiDifficulty;      // difficulty chosen for GUI (1,2,3)
-    //ivan
+    private String playername;      // stored name for GUI runs
+    private int guidiff;            // difficulty chosen for GUI (1,2,3)
+
+    // card names for CardLayout
+    private static final String card_title = "title";
+    private static final String card_game  = "game";
+
     public Main() {
         super("Rescue Wolfy!");
 
+        // use CardLayout to switch between title screen and game screen
+        cardlayout = new CardLayout();
+        mainPanel = new JPanel(cardlayout);
+
+        // build title screen and game screen
+        JPanel titlepanel = createtitlepanel();
+        JPanel gamepanel = creategamepanel();
+
+        mainPanel.add(titlepanel, card_title);
+        mainPanel.add(gamepanel, card_game);
+
+        setContentPane(mainPanel);
+
+        // menu bar with Instructions and About
+        setJMenuBar(createmenubar());
+
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1000, 900);
+        setLocationRelativeTo(null);
+
+        // show title screen first
+        cardlayout.show(mainPanel, card_title);
+        setVisible(true);
+    }
+
+    // build the title screen panel
+    private JPanel createtitlepanel() {
+        JPanel title = new JPanel(new BorderLayout(10, 10)) {
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                // simple vertical gradient for jungle sky/forest
+                Graphics2D g2 = (Graphics2D) g;
+                int w = getWidth();
+                int h = getHeight();
+                Color top = new Color(0, 80, 90);
+                Color bottom = new Color(0, 50, 40);
+                GradientPaint gp = new GradientPaint(0, 0, top, 0, h, bottom);
+                g2.setPaint(gp);
+                g2.fillRect(0, 0, w, h);
+            }
+        };
+
+        JPanel inner = new JPanel(new BorderLayout(10, 10));
+        inner.setOpaque(false);
+        inner.setBorder(new EmptyBorder(40, 80, 60, 80));
+
+        JLabel titlelabel = new JLabel("Rescue Wolfy", JLabel.CENTER);
+        titlelabel.setFont(new Font("Serif", Font.BOLD, 48));
+        titlelabel.setForeground(new Color(210, 255, 210));
+        titlelabel.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        JLabel subtitle = new JLabel("Find Wolfy and avoid the hidden jungle mines", JLabel.CENTER);
+        subtitle.setFont(new Font("SansSerif", Font.PLAIN, 18));
+        subtitle.setForeground(new Color(190, 235, 230));
+        subtitle.setBorder(new EmptyBorder(0, 10, 20, 10));
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+        header.add(titlelabel, BorderLayout.NORTH);
+        header.add(subtitle, BorderLayout.SOUTH);
+
+        JPanel center = new JPanel();
+        center.setOpaque(false);
+        center.setLayout(new GridLayout(3, 1, 12, 12));
+
+        JButton playbutton = makebuttonstyled("Play");
+        playbutton.setFont(new Font("SansSerif", Font.BOLD, 20));
+        playbutton.addActionListener(e -> startgame());
+
+        JButton instrbutton = makebuttonstyled("Instructions");
+        instrbutton.setFont(new Font("SansSerif", Font.BOLD, 20));
+        instrbutton.addActionListener(e -> showinstructions());
+
+        JButton quitbutton = makebuttonstyled("Quit");
+        quitbutton.setFont(new Font("SansSerif", Font.BOLD, 20));
+        quitbutton.addActionListener(e -> System.exit(0));
+
+        center.add(playbutton);
+        center.add(instrbutton);
+        center.add(quitbutton);
+
+        JPanel card = new JPanel(new BorderLayout(10, 10));
+        card.setOpaque(false);
+        card.setBorder(new CompoundBorder(
+                new LineBorder(new Color(0, 0, 0, 90), 2, true),
+                new EmptyBorder(20, 30, 30, 30)));
+        card.add(header, BorderLayout.NORTH);
+        card.add(center, BorderLayout.CENTER);
+
+        inner.add(card, BorderLayout.CENTER);
+        title.add(inner, BorderLayout.CENTER);
+
+        return title;
+    }
+
+    // create the menu bar with Instructions and About
+    private JMenuBar createmenubar() {
+        JMenuBar bar = new JMenuBar();
+
+        JMenu gameMenu = new JMenu("Game");
+        JMenuItem newgameitem = new JMenuItem("New Game");
+        newgameitem.addActionListener(e -> startgame());
+        JMenuItem quititem = new JMenuItem("Quit");
+        quititem.addActionListener(e -> System.exit(0));
+        gameMenu.add(newgameitem);
+        gameMenu.addSeparator();
+        gameMenu.add(quititem);
+
+        JMenu helpMenu = new JMenu("Help");
+        JMenuItem instritem = new JMenuItem("Instructions");
+        instritem.addActionListener(e -> showinstructions());
+        JMenuItem aboutitem = new JMenuItem("About");
+        aboutitem.addActionListener(e -> showabout());
+        helpMenu.add(instritem);
+        helpMenu.add(aboutitem);
+
+        bar.add(gameMenu);
+        bar.add(helpMenu);
+        return bar;
+    }
+
+    // start the game when Play or New Game is chosen from title/menu
+    private void startgame() {
         // ask for name using a simple dialog
-        playerName = JOptionPane.showInputDialog(this, "Please enter your name: ");
-        if (playerName == null) playerName = "player";
-        playerName = playerName.trim();
-        if (playerName.length() == 0) playerName = "player";
-        name = playerName;
+        playername = JOptionPane.showInputDialog(this, "Please enter your name: ");
+        if (playername == null) playername = "player";
+        playername = playername.trim();
+        if (playername.length() == 0) playername = "player";
+        name = playername;
 
         // ask for difficulty using a number: 1 easy, 2 medium, 3 hard
-        guiDifficulty = askDifficulty();
-        setup(guiDifficulty);
+        guidiff = askDifficulty();
+        setup(guidiff);
         init();
 
         // start game sounds (intro + background ambience)
@@ -92,116 +223,65 @@ public class Main extends JFrame implements ActionListener {
         done = false;
         win = false;
 
-        // set up labels
-        infoLabel = new JLabel("", JLabel.CENTER);
-        statusLabel = new JLabel("use the buttons or WASD/arrow keys to move, f to use the hidden feature..", JLabel.CENTER);
-        moveTrackerLabel = new JLabel("", JLabel.CENTER);
-
-        // move log area on the side
-        moveLogArea = new JTextArea();
-        moveLogArea.setEditable(false);
-        moveLogArea.setFont(new Font("Monospaced", Font.PLAIN, 11));
-
-        // drawing panel
-        panel = new RescuePanel();
-
-        // allow WASD keys and arrow keys to control movement as well as buttons
-        panel.setFocusable(true);
-        panel.addKeyListener(new KeyAdapter() {
-            public void keyPressed(KeyEvent e) {
-                char ch = Character.toLowerCase(e.getKeyChar());
-                int code = e.getKeyCode();
-
-                // map keys to movement chars used by the game
-                char move = 0;
-                if (ch == 'w' || code == KeyEvent.VK_UP) move = 'w';
-                else if (ch == 's' || code == KeyEvent.VK_DOWN) move = 's';
-                else if (ch == 'a' || code == KeyEvent.VK_LEFT) move = 'a';
-                else if (ch == 'd' || code == KeyEvent.VK_RIGHT) move = 'd';
-
-                if (move == 'w' || move == 'a' || move == 's' || move == 'd') {
-                    doMove(move);
-                    updateInfo();
-                    panel.repaint();
-
-                } else if (ch == 'f') {
-                    // scan distance to wolfy
-                    int dr = row - wolfrow;
-                    if (dr < 0) dr = -dr;
-                    int dc = col - wolfcol;
-                    if (dc < 0) dc = -dc;
-                    int distance = dr + dc;
-                    statusLabel.setText("scanner: wolfy is " + distance + " squares away");
-                    logMove("used scan (distance " + distance + ")");
-                    updateInfo();
-                    panel.repaint();
-
-                } else if (ch == 'g') {
-                    done = true;
-                    win = false;
-                    statusLabel.setText(name + " gave up");
-                    logMove("gave up");
-                    updateInfo();
-                    panel.repaint();
-                }
-            }
-        });
-        //jaden
-        // buttons panel
-        JPanel buttons = new JPanel();
-        buttons.setLayout(new GridLayout(2, 4, 5, 5));
-
-        upButton = makeButton("UP", "up");
-        downButton = makeButton("DOWN", "down");
-        leftButton = makeButton("LEFT", "left");
-        rightButton = makeButton("RIGHT", "right");
-        scanButton = makeButton("SCAN", "scan");
-        giveUpButton = makeButton("GIVE UP", "giveup");
-        newGameButton = makeButton("NEW GAME", "newgame");
-
-        buttons.add(upButton);
-        buttons.add(downButton);
-        buttons.add(leftButton);
-        buttons.add(rightButton);
-        buttons.add(scanButton);
-        buttons.add(giveUpButton);
-        buttons.add(newGameButton);
-        buttons.add(new JLabel("")); // spacer
-
-        // side panel on the right: short tracker + detailed move log
-        JPanel sidePanel = new JPanel();
-        sidePanel.setLayout(new BorderLayout(5, 5));
-        sidePanel.add(moveTrackerLabel, BorderLayout.NORTH);
-        JScrollPane moveScroll = new JScrollPane(moveLogArea);
-        moveScroll.setPreferredSize(new Dimension(220, 0));
-        sidePanel.add(moveScroll, BorderLayout.CENTER);
-
-        // main layout
-        JPanel main = new JPanel();
-        main.setLayout(new BorderLayout(5, 5));
-        main.add(infoLabel, BorderLayout.NORTH);
-        main.add(panel, BorderLayout.CENTER);
-        main.add(statusLabel, BorderLayout.SOUTH);
-        main.add(sidePanel, BorderLayout.EAST);
-
-        getContentPane().setLayout(new BorderLayout(5, 5));
-        getContentPane().add(main, BorderLayout.CENTER);
-        getContentPane().add(buttons, BorderLayout.SOUTH);
-
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(800, 800);
-        setLocationRelativeTo(null);
-
         updateInfo();
-
-        setVisible(true);
+        panel.repaint();
         panel.requestFocusInWindow();
+
+        // switch to game screen
+        cardlayout.show(mainPanel, card_game);
     }
-    //ivan
+
+    // show instructions dialog
+    private void showinstructions() {
+        String msg = "HOW TO PLAY RESCUE WOLFY\n\n" +
+                "Goal: Move through the jungle to find Wolfy while avoiding hidden bombs.\n" +
+                "You can only clearly see a 10x10 area around your current position.\n\n" +
+                "Controls:\n" +
+                "- W / Up Arrow    : move up\n" +
+                "- S / Down Arrow  : move down\n" +
+                "- A / Left Arrow  : move left\n" +
+                "- D / Right Arrow : move right\n" +
+                "- F               : scan distance to Wolfy\n" +
+                "- G               : give up\n\n" +
+                "Difficulty:\n" +
+                "- Easy   : 1 bomb, 100 moves\n" +
+                "- Medium : 2 bombs, 75 moves\n" +
+                "- Hard   : 2 bombs, 60 moves, bombs move more often\n\n" +
+                "Heat numbers on visited tiles show how close the nearest bomb is:\n" +
+                "higher numbers mean closer (hotter).";
+        JOptionPane.showMessageDialog(this, msg, "Instructions", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    // show About dialog
+    private void showabout() {
+        String msg = "Rescue Wolfy\n" +
+                "Author: [Your Name Here]\n" +
+                "Course: ICS3U1\n" +
+                "Description: Jungle-themed grid rescue game with fog-of-war,\n" +
+                "moving bombs, heat hints, and a leaderboard.";
+        JOptionPane.showMessageDialog(this, msg, "About", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    // simple styled button used for in-game UI
     private JButton makeButton(String text, String command) {
-        JButton b = new JButton(text);
+        JButton b = makebuttonstyled(text);
         b.setActionCommand(command);
         b.addActionListener(this);
+        return b;
+    }
+
+    // base style for all buttons (title + game)
+    private JButton makebuttonstyled(String text) {
+        JButton b = new JButton(text);
+        b.setFocusPainted(false);
+        b.setForeground(new Color(230, 250, 240));
+        b.setBackground(new Color(0, 90, 80));
+        b.setOpaque(true);
+        b.setBorder(new CompoundBorder(
+                new LineBorder(new Color(0, 0, 0, 120), 1, true),
+                new EmptyBorder(6, 10, 6, 10)));
+        b.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return b;
     }
 
@@ -244,8 +324,8 @@ public class Main extends JFrame implements ActionListener {
     }
     //jaden
     private void startNewGame() {
-        name = playerName;
-        setup(guiDifficulty);
+        name = playername;
+        setup(guidiff);
         init();
         done = false;
         win = false;
@@ -283,6 +363,13 @@ public class Main extends JFrame implements ActionListener {
             statusLabel.setText(name + " gave up");
         } else if (cmd.equals("newgame")) {
             startNewGame();
+        } else if (cmd.equals("menu")) {
+            // stop sounds and go back to title screen
+            SoundHandling.stopBackgroundLoop();
+            done = true;
+            cardlayout.show(mainPanel, card_title);
+        } else if (cmd.equals("quitapp")) {
+            System.exit(0);
         }
 
         updateInfo();
@@ -310,6 +397,150 @@ public class Main extends JFrame implements ActionListener {
             diffname = "hard";
         }
     }
+    // create game screen panel (layout around RescuePanel)
+    private JPanel creategamepanel() {
+        // set up labels
+        infoLabel = new JLabel("", JLabel.CENTER);
+        infoLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
+        infoLabel.setOpaque(true);
+        infoLabel.setBackground(new Color(0, 90, 70));
+        infoLabel.setForeground(new Color(220, 255, 235));
+        infoLabel.setBorder(new EmptyBorder(8, 8, 8, 8));
+
+        statusLabel = new JLabel("use the buttons or WASD/arrow keys to move, f to use the hidden feature..", JLabel.CENTER);
+        statusLabel.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        statusLabel.setOpaque(true);
+        statusLabel.setBackground(new Color(0, 70, 90));
+        statusLabel.setForeground(new Color(220, 240, 255));
+        statusLabel.setBorder(new EmptyBorder(6, 6, 6, 6));
+
+        moveTrackerLabel = new JLabel("", JLabel.CENTER);
+        moveTrackerLabel.setFont(new Font("SansSerif", Font.PLAIN, 14));
+
+        // move log area on the side
+        moveLogArea = new JTextArea();
+        moveLogArea.setEditable(false);
+        moveLogArea.setFont(new Font("Monospaced", Font.PLAIN, 11));
+
+        // drawing panel
+        panel = new RescuePanel();
+        panel.setBackground(new Color(0, 40, 40));
+
+        // allow WASD keys and arrow keys to control movement as well as buttons
+        panel.setFocusable(true);
+        panel.addKeyListener(new KeyAdapter() {
+            public void keyPressed(KeyEvent e) {
+                char ch = Character.toLowerCase(e.getKeyChar());
+                int code = e.getKeyCode();
+
+                // map keys to movement chars used by the game
+                char move = 0;
+                if (ch == 'w' || code == KeyEvent.VK_UP) move = 'w';
+                else if (ch == 's' || code == KeyEvent.VK_DOWN) move = 's';
+                else if (ch == 'a' || code == KeyEvent.VK_LEFT) move = 'a';
+                else if (ch == 'd' || code == KeyEvent.VK_RIGHT) move = 'd';
+
+                if (move == 'w' || move == 'a' || move == 's' || move == 'd') {
+                    doMove(move);
+                    updateInfo();
+                    panel.repaint();
+
+                } else if (ch == 'f') {
+                    // scan distance to wolfy
+                    int dr = row - wolfrow;
+                    if (dr < 0) dr = -dr;
+                    int dc = col - wolfcol;
+                    if (dc < 0) dc = -dc;
+                    int distance = dr + dc;
+                    statusLabel.setText("scanner: wolfy is " + distance + " squares away");
+                    logMove("used scan (distance " + distance + ")");
+                    updateInfo();
+                    panel.repaint();
+
+                } else if (ch == 'g') {
+                    done = true;
+                    win = false;
+                    statusLabel.setText(name + " gave up");
+                    logMove("gave up");
+                    updateInfo();
+                    panel.repaint();
+                }
+            }
+        });
+
+        // bottom controls
+        JPanel buttons = new JPanel(new BorderLayout(10, 10));
+        buttons.setBorder(new EmptyBorder(6, 6, 6, 6));
+        buttons.setBackground(new Color(0, 55, 70));
+
+        // movement buttons laid out like WASD on the left
+        JPanel movepanel = new JPanel(new GridLayout(2, 3, 4, 4));
+        movepanel.setOpaque(false);
+        upButton = makeButton("W", "up");
+        leftButton = makeButton("A", "left");
+        downButton = makeButton("S", "down");
+        rightButton = makeButton("D", "right");
+        movepanel.add(new JLabel(""));
+        movepanel.add(upButton);
+        movepanel.add(new JLabel(""));
+        movepanel.add(leftButton);
+        movepanel.add(downButton);
+        movepanel.add(rightButton);
+
+        // center actions (scan + give up)
+        JPanel centerbuttons = new JPanel(new GridLayout(2, 1, 4, 4));
+        centerbuttons.setOpaque(false);
+        scanButton = makeButton("SCAN", "scan");
+        giveUpButton = makeButton("GIVE UP", "giveup");
+        centerbuttons.add(scanButton);
+        centerbuttons.add(giveUpButton);
+
+        // right side game controls (new game, exit to menu, quit)
+        JPanel gamectrl = new JPanel(new GridLayout(3, 1, 4, 4));
+        gamectrl.setOpaque(false);
+        newGameButton = makeButton("NEW GAME", "newgame");
+        JButton menubutton = makeButton("MENU", "menu");
+        JButton quitbutton = makeButton("QUIT", "quitapp");
+        gamectrl.add(newGameButton);
+        gamectrl.add(menubutton);
+        gamectrl.add(quitbutton);
+
+        buttons.add(movepanel, BorderLayout.WEST);
+        buttons.add(centerbuttons, BorderLayout.CENTER);
+        buttons.add(gamectrl, BorderLayout.EAST);
+
+        // side panel on the right: short tracker + detailed move log
+        JPanel sidePanel = new JPanel();
+        sidePanel.setLayout(new BorderLayout(5, 5));
+        sidePanel.setBorder(new EmptyBorder(6, 6, 6, 6));
+        sidePanel.setBackground(new Color(0, 55, 70));
+        moveTrackerLabel.setBorder(new EmptyBorder(4, 4, 4, 4));
+        sidePanel.add(moveTrackerLabel, BorderLayout.NORTH);
+
+        JScrollPane movescroll = new JScrollPane(moveLogArea);
+        movescroll.setPreferredSize(new Dimension(230, 0));
+        movescroll.setBorder(new TitledBorder("Move Log"));
+        sidePanel.add(movescroll, BorderLayout.CENTER);
+
+        // main layout
+        JPanel game = new JPanel();
+        game.setLayout(new BorderLayout(5, 5));
+        game.setBackground(new Color(0, 45, 50));
+        game.setBorder(new EmptyBorder(6, 6, 6, 6));
+        game.add(infoLabel, BorderLayout.NORTH);
+        game.add(panel, BorderLayout.CENTER);
+        game.add(sidePanel, BorderLayout.EAST);
+
+        // bottom area: status label on top of control buttons
+        JPanel bottom = new JPanel(new BorderLayout());
+        bottom.setOpaque(false);
+        bottom.add(statusLabel, BorderLayout.NORTH);
+        bottom.add(buttons, BorderLayout.CENTER);
+        game.add(bottom, BorderLayout.SOUTH);
+
+        return game;
+    }
+
     //ivan
     private void init() {
         visited = new boolean[rows][cols];
