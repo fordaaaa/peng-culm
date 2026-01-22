@@ -350,18 +350,39 @@ public class Main extends JFrame implements ActionListener {
     private void doMove(char m) {
         if (done) return;
         if (canmove(m)) {
+            // actually move the player
             domove(m);
             steps++;
             visited[row][col] = true;
             logMove(describeMove(m));
 
-            // play movement sound each ti            double chance = Math.random(); // 50% chance to move bomb
+            // play movement sound each time the player moves
+            SoundHandling.playMove();
+
+            // decrease remaining moves (if limited)
+            if (moves > -1) movesleft--;
+
+            // 50% chance to move the bomb closer to the player
+            double chance = Math.random();
             if (chance < 0.50) {
                 moveBombTowardPlayer();
             }
 
             // heartbeat / breathing based on how close the bomb is
-            int dr = row - bombRo            if (row == bombRow && col == bombCol) {
+            int dr = row - bombRow;
+            if (dr < 0) dr = -dr;
+            int dc = col - bombCol;
+            if (dc < 0) dc = -dc;
+            int dist = dr + dc;
+            if (dist <= 4) {
+                SoundHandling.playHeartbeat2();
+                SoundHandling.playBreathing();
+            } else if (dist <= 8) {
+                SoundHandling.playHeartbeat1();
+            }
+
+            // check for hitting bomb, rescuing wolfy, or running out of moves
+            if (row == bombRow && col == bombCol) {
                 statusLabel.setText("boom! " + name + " stepped on a mine");
                 logMove("hit a mine");
 
