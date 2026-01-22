@@ -59,7 +59,6 @@ public class SoundHandling {
     }
 
     // methods for specific game sounds 
-
     public static void playstartupsound() {
         playSound("util/sounds/gamestart.wav");
     }
@@ -70,5 +69,25 @@ public class SoundHandling {
 
     public static void playwin() {
         playSound("util/sounds/victory.wav");
+    }
+
+    public static void playmove() {
+        playSound("util/sounds/bushcut.wav");
+    }
+
+    public static void playheartbeat1() {
+        playSound("util/sounds/2x heartbeat.wav");
+    }
+
+    public static void playheartbeat2() {
+        playSound("util/sounds/3x heartbeat.wav");
+    }
+
+    public static void playbreathing() {
+        playSound("util/sounds/heavy breathing.wav");
+    }
+
+    public static void playpageturn() {
+        playSound("util/sounds/pageturn.wav");
     }
 }
