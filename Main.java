@@ -332,8 +332,8 @@ public class Main extends JFrame implements ActionListener {
         ButtonGroup diffGroup = new ButtonGroup();
         
         easyButton = new JRadioButton("Easy (100 moves)", true);
-        mediumButton = new JRadioButton("Medium (75 moves)", false);
-        hardButton = new JRadioButton("Hard (60 moves)", false);
+        mediumButton = new JRadioButton("Medium (80 moves)", false);
+        hardButton = new JRadioButton("Hard (70 moves)", false);
         
         easyButton.setFont(new Font("SansSerif", Font.PLAIN, 14));
         mediumButton.setFont(new Font("SansSerif", Font.PLAIN, 14));
@@ -590,7 +590,7 @@ public class Main extends JFrame implements ActionListener {
     private void updateInfo() {
         String movesText;
         if (moves > -1) movesText = "moves left " + movesleft; 
-        else movesText = "moves left unlimited";
+        else movesText = "moves left unlimited"; // not using anymore
         infoLabel.setText("player " + name + "  difficulty " + diffname +
                 "  steps " + steps + "  " + movesText);
 
@@ -682,12 +682,12 @@ public class Main extends JFrame implements ActionListener {
         } else if (d == 2) {
             rows = 50;
             cols = 50;
-            moves = 75;          // medium: 75 moves
+            moves = 80;          // medium: 75 moves
             diffname = "medium";
         } else {
-            rows = 50;
-            cols = 50;
-            moves = 60;          // hard: 60 moves
+            rows = 45;
+            cols = 45;
+            moves = 70;          // hard: 60 moves
             diffname = "hard";
         }
     }
